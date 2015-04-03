@@ -283,7 +283,7 @@ def _lil_fancy_set_{{PYIDX}}_{{PYVALUE}}(cnp.npy_intp M, cnp.npy_intp N,
 @cython.cdivision(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cdef inline cnp.npy_intp bisect_left(c_array.array a, cnp.npy_intp x) except -1:
+cdef inline cnp.npy_intp bisect_left(int[::1] a, cnp.npy_intp x) except -1:
     """
     Bisection search in a sorted list.
 
