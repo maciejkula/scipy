@@ -6,7 +6,7 @@ __docformat__ = "restructuredtext en"
 
 __all__ = ['csr_matrix', 'isspmatrix_csr']
 
-
+import array
 import numpy as np
 from scipy._lib.six import xrange
 
@@ -141,7 +141,7 @@ class csr_matrix(_cs_matrix, IndexMixin):
         for n in xrange(self.shape[0]):
             start = ptr[n]
             end = ptr[n+1]
-            rows[n] = ind[start:end].tolist()
+            rows[n] = array.array('i', ind[start:end])
             data[n] = dat[start:end].tolist()
 
         return lil

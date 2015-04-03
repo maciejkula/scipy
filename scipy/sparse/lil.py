@@ -7,6 +7,7 @@ __docformat__ = "restructuredtext en"
 
 __all__ = ['lil_matrix','isspmatrix_lil']
 
+import array
 import numpy as np
 
 from .base import spmatrix, isspmatrix
@@ -107,7 +108,7 @@ class lil_matrix(spmatrix, IndexMixin):
                 self.rows = np.empty((M,), dtype=object)
                 self.data = np.empty((M,), dtype=object)
                 for i in range(M):
-                    self.rows[i] = []
+                    self.rows[i] = array.array('i')
                     self.data[i] = []
             else:
                 raise TypeError('unrecognized lil_matrix constructor usage')
