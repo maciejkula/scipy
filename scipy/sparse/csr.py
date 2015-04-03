@@ -142,7 +142,10 @@ class csr_matrix(_cs_matrix, IndexMixin):
             start = ptr[n]
             end = ptr[n+1]
             rows[n] = array.array('i', ind[start:end])
-            data[n] = dat[start:end].tolist()
+            if lil.typecode is not None:
+                data[n] = array.array(lil.typecode, dat[start:end])
+            else:
+                data[n] = dat[start:end].tolist()
 
         return lil
 
