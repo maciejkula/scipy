@@ -1,0 +1,160 @@
+# -*- cython -*-
+# distutils: language = c++
+#
+#
+# Tempita-templated Cython file
+#
+"""
+Fast snippets for LIL matrices.
+"""
+
+ctypedef long double ldouble
+ctypedef float complex fcomplex
+ctypedef double complex dcomplex
+ctypedef long double complex ldcomplex
+
+{{py:
+
+IDX_TYPES = {
+    "int32": "cnp.npy_int32",
+    "int64": "cnp.npy_int64",
+}
+
+VALUE_TYPES = {
+    "bool_": "cnp.npy_bool",
+    "int8": "cnp.npy_int8",
+    "uint8": "cnp.npy_uint8",
+    "int16": "cnp.npy_int16",
+    "uint16": "cnp.npy_uint16",
+    "int32": "cnp.npy_int32",
+    "uint32": "cnp.npy_uint32",
+    "int64": "cnp.npy_int64",
+    "uint64": "cnp.npy_uint64",
+    "float32": "cnp.npy_float32",
+    "float64": "cnp.npy_float64",
+    "longdouble": "ldouble",
+    "complex64": "fcomplex",
+    "complex128": "dcomplex",
+    "clongdouble": "ldcomplex",
+}
+
+
+def get_dispatch(types):
+    for pyname, cyname in types.items():
+        yield pyname, cyname
+
+def get_dispatch2(types, types2):
+    for pyname, cyname in types.items():
+        for pyname2, cyname2 in types2.items():
+            yield pyname, pyname2, cyname, cyname2
+}}
+
+
+cimport cython
+cimport numpy as cnp
+import numpy as np
+
+from cython.operator cimport dereference as deref
+from libcpp.vector cimport vector
+
+
+{{for PYIDX, PYVALUE, IDX_T, VALUE_T in get_dispatch2(IDX_TYPES, VALUE_TYPES)}}
+cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
+    """
+    """
+
+    cdef vector[vector[{{IDX_T}}]] indices
+    cdef vector[vector[{{VALUE_T}}]] data
+
+    def __init__(self):
+        pass
+
+    cpdef void set(self, {{IDX_T}} row, {{IDX_T}} col, {{VALUE_T}} value):
+
+        cdef vector[{{IDX_T}}] *row_indices
+        cdef vector[{{VALUE_T}}] *row_data
+        cdef {{IDX_T}} idx, col_at_idx
+
+        while row >= self.indices.size():
+            self.indices.push_back(vector[{{IDX_T}}]())
+            self.data.push_back(vector[{{VALUE_T}}]())
+
+        row_indices = &(self.indices[row])
+        row_data = &(self.data[row])
+
+        if row_indices.size() == 0:
+            idx = 0
+        else:
+            idx = binary_search_{{PYIDX}}(&(deref(row_indices)[0]), row_indices.size(),
+                                          0, row_indices.size(), col)
+
+        # Element to be added at the end
+        if idx == row_indices.size():
+            row_indices.insert(row_indices.begin() + idx, col)
+            row_data.insert(row_data.begin() + idx, value)
+            return
+
+        col_at_idx = deref(row_indices)[idx]
+
+        if col_at_idx == col:
+            # Element to be set
+            deref(row_data)[idx] = value
+        else:
+            # Element to be inserted
+            row_indices.insert(row_indices.begin() + idx, col)
+            row_data.insert(row_data.begin() + idx, value)
+
+    cpdef {{VALUE_T}} get(self, {{IDX_T}} row, {{IDX_T}} col):
+
+        cdef vector[{{IDX_T}}] *row_indices
+        cdef vector[{{VALUE_T}}] *row_data
+        cdef {{IDX_T}} idx, col_at_idx
+
+        if row >= self.indices.size():
+            return 0
+
+        row_indices = &(self.indices[row])
+        row_data = &(self.data[row])
+
+        if row_indices.size() == 0:
+            return 0
+        else:
+            idx = binary_search_{{PYIDX}}(&(deref(row_indices)[0]), row_indices.size(),
+                                          0, row_indices.size(), col)
+
+        if idx == row_indices.size():
+            return 0
+
+        col_at_idx = deref(row_indices)[idx]
+
+        if col_at_idx == col:
+            return deref(row_data)[idx]
+        else:
+            return 0
+{{endfor}}
+
+
+{{for PYIDX, IDX_T in get_dispatch(IDX_TYPES)}}
+cdef {{IDX_T}} binary_search_{{PYIDX}}({{IDX_T}}* vec, {{IDX_T}} size, {{IDX_T}} first, {{IDX_T}} last, {{IDX_T}} x) nogil:
+    """
+    Binary seach in an array of {{IDX_T}}s
+    """
+
+    cdef {{IDX_T}} mid
+
+    while (first < last):
+        mid = (first + last) / 2
+        if (vec[mid] == x):
+            return mid
+        elif vec[mid] > x:
+            last = mid - 1
+        else:
+            first = mid + 1
+
+    if (first == size):
+        return first
+    elif vec[first] > x:
+        return first
+    else:
+        return first + 1
+{{endfor}}
