@@ -21,7 +21,7 @@ IDX_TYPES = {
 }
 
 VALUE_TYPES = {
-    "bool_": "cnp.npy_bool",
+    "bool": "cnp.npy_bool",
     "int8": "cnp.npy_int8",
     "uint8": "cnp.npy_uint8",
     "int16": "cnp.npy_int16",
@@ -32,10 +32,10 @@ VALUE_TYPES = {
     "uint64": "cnp.npy_uint64",
     "float32": "cnp.npy_float32",
     "float64": "cnp.npy_float64",
-    "longdouble": "ldouble",
+    "float128": "cnp.npy_float128",
     "complex64": "fcomplex",
     "complex128": "dcomplex",
-    "clongdouble": "ldcomplex",
+    "complex256": "ldcomplex",
 }
 
 
@@ -66,18 +66,17 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
     cdef vector[vector[{{IDX_T}}]] indices
     cdef vector[vector[{{VALUE_T}}]] data
 
-    def __init__(self):
-        pass
+    def __init__(self, {{IDX_T}} num_rows):
+
+        for i in range(num_rows):
+            self.indices.push_back(vector[{{IDX_T}}]())
+            self.data.push_back(vector[{{VALUE_T}}]())
 
     cpdef void set(self, {{IDX_T}} row, {{IDX_T}} col, {{VALUE_T}} value):
 
         cdef vector[{{IDX_T}}] *row_indices
         cdef vector[{{VALUE_T}}] *row_data
         cdef {{IDX_T}} idx, col_at_idx
-
-        while row >= self.indices.size():
-            self.indices.push_back(vector[{{IDX_T}}]())
-            self.data.push_back(vector[{{VALUE_T}}]())
 
         row_indices = &(self.indices[row])
         row_data = &(self.data[row])
@@ -131,7 +130,57 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
             return deref(row_data)[idx]
         else:
             return 0
+
+    cpdef {{IDX_T}} getnnz(self):
+
+        cdef {{IDX_T}} i
+        cdef {{IDX_T}} nnz = 0
+
+        for i in range(self.indices.size()):
+            nnz += self.indices[i].size()
+
+        return nnz
+
+    cpdef get_row(self, {{IDX_T}} row):
+
+        return (np.array(self.indices[row]),
+                np.array(self.data[row]))
+
+    cpdef tocsr(self):
+
+        cdef cnp.ndarray[{{IDX_T}}, ndim=1] indices
+        cdef cnp.ndarray[{{IDX_T}}, ndim=1] indptr
+        cdef cnp.ndarray[{{VALUE_T}}, ndim=1] data
+
+        cdef vector[{{IDX_T}}] *row_indices
+        cdef vector[{{VALUE_T}}] *row_data
+
+        cdef {{IDX_T}} i, j, idx
+        cdef {{IDX_T}} nnz = self.getnnz()
+
+        indices = np.empty(nnz, dtype=np.{{PYIDX}})
+        indptr = np.empty(self.indices.size() + 1, dtype=np.{{PYIDX}})
+        data = np.empty(nnz, dtype=np.{{PYVALUE}})
+
+        idx = 0
+        indptr[0] = 0
+
+        for i in range(self.indices.size()):
+            row_indices = &(self.indices[i])
+            row_data = &(self.data[i])
+
+            for j in range(row_indices.size()):
+                indices[idx] = deref(row_indices)[j]
+                data[idx] = deref(row_data)[j]
+
+                idx += 1
+
+            indptr[i + 1] = indptr[i] + row_indices.size()
+
+        return indices, indptr, data
 {{endfor}}
+
+
 
 
 {{for PYIDX, IDX_T in get_dispatch(IDX_TYPES)}}

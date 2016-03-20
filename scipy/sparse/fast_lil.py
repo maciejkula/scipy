@@ -5,7 +5,7 @@ from __future__ import division, print_function, absolute_import
 
 __docformat__ = "restructuredtext en"
 
-__all__ = ['fast_lil_matrix','isspmatrix_fast_lil']
+__all__ = ['fast_lil_matrix', 'isspmatrix_fast_lil']
 
 import numpy as np
 
@@ -13,10 +13,10 @@ from scipy._lib.six import xrange
 from .base import spmatrix, isspmatrix
 from .sputils import (getdtype, isshape, isscalarlike, IndexMixin,
                       upcast_scalar, get_index_dtype, isintlike)
-from . import _csparsetools, _fastlil
+from . import _fastlil
 
 
-class lil_matrix(spmatrix, IndexMixin):
+class fast_lil_matrix(spmatrix, IndexMixin):
     """Row-based linked list sparse matrix
 
     This is a structure for constructing sparse matrices incrementally.
@@ -85,11 +85,6 @@ class lil_matrix(spmatrix, IndexMixin):
         spmatrix.__init__(self)
         self.dtype = getdtype(dtype, arg1, default=float)
 
-        self._matrix = getattr(_fastlil,
-                               'fast_lil_matrix_{}_{}'.format(
-                                   'int32',
-                                   str(self.dtype).split('.')[1]))()
-
         # First get the shape
         if isspmatrix(arg1):
             if isspmatrix_lil(arg1) and copy:
@@ -102,19 +97,16 @@ class lil_matrix(spmatrix, IndexMixin):
 
             self.shape = A.shape
             self.dtype = A.dtype
-            self.rows = A.rows
-            self.data = A.data
-        elif isinstance(arg1,tuple):
+
+            self._matrix = self._get_matrix()
+            self._from_lil(A)
+
+        elif isinstance(arg1, tuple):
             if isshape(arg1):
                 if shape is not None:
                     raise ValueError('invalid use of shape parameter')
                 M, N = arg1
-                self.shape = (M,N)
-                self.rows = np.empty((M,), dtype=object)
-                self.data = np.empty((M,), dtype=object)
-                for i in range(M):
-                    self.rows[i] = []
-                    self.data[i] = []
+                self.shape = (M, N)
             else:
                 raise TypeError('unrecognized lil_matrix constructor usage')
         else:
@@ -129,8 +121,34 @@ class lil_matrix(spmatrix, IndexMixin):
 
                 self.shape = A.shape
                 self.dtype = A.dtype
-                self.rows = A.rows
-                self.data = A.data
+                self._matrix = self._get_matrix()
+                self._from_lil(A)
+
+    def _get_matrix(self):
+
+        num_rows = self.shape[0]
+
+        return getattr(_fastlil,
+                       'fast_lil_matrix_{}_{}'.format(
+                           'int32',
+                           str(self.dtype)))(np.int32(num_rows))
+
+    def _set(self, row, col, value):
+
+        self._matrix.set(np.int32(row), np.int32(col), self.dtype.type(value))
+
+    def _get(self, row, col, value):
+
+        return self._matrix.get(np.int32(row),
+                                np.int32(col),
+                                self.dtype.type(value))
+
+    def _from_lil(self, lil_matrix):
+
+        for row_idx, (row_indices, row_data) in enumerate(zip(lil_matrix.rows,
+                                                              lil_matrix.data)):
+            for col_idx, value in zip(row_indices, row_data):
+                self._set(row_idx, col_idx, value)
 
     def set_shape(self,shape):
         shape = tuple(shape)
@@ -427,9 +445,13 @@ class lil_matrix(spmatrix, IndexMixin):
     def toarray(self, order=None, out=None):
         """See the docstring for `spmatrix.toarray`."""
         d = self._process_toarray_args(order, out)
-        for i, row in enumerate(self.rows):
-            for pos, j in enumerate(row):
-                d[i, j] = self.data[i][pos]
+
+        for row_idx in range(self.shape[0]):
+            row_indices, row_data = self._matrix.get_row(row_idx)
+
+            for i in range(len(row_indices)):
+                d[row_idx, row_indices[i]] = row_data[i]
+
         return d
 
     def transpose(self):
@@ -445,21 +467,7 @@ class lil_matrix(spmatrix, IndexMixin):
         """ Return Compressed Sparse Row format arrays for this matrix.
         """
 
-        lst = [len(x) for x in self.rows]
-        idx_dtype = get_index_dtype(maxval=max(self.shape[1], sum(lst)))
-        indptr = np.asarray(lst, dtype=idx_dtype)
-        indptr = np.concatenate((np.array([0], dtype=idx_dtype),
-                                 np.cumsum(indptr, dtype=idx_dtype)))
-
-        indices = []
-        for x in self.rows:
-            indices.extend(x)
-        indices = np.asarray(indices, dtype=idx_dtype)
-
-        data = []
-        for x in self.data:
-            data.extend(x)
-        data = np.asarray(data, dtype=self.dtype)
+        indices, indptr, data = self._matrix.tocsr()
 
         from .csr import csr_matrix
         return csr_matrix((data, indices, indptr), shape=self.shape)
@@ -511,5 +519,5 @@ def _prepare_index_for_memoryview(i, j, x=None):
         return i, j
 
 
-def isspmatrix_lil(x):
+def isspmatrix_fast_lil(x):
     return isinstance(x, lil_matrix)

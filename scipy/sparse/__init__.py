@@ -214,6 +214,7 @@ from .base import *
 from .csr import *
 from .csc import *
 from .lil import *
+from .fast_lil import *
 from .dok import *
 from .coo import *
 from .dia import *
