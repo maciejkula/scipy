@@ -604,7 +604,6 @@ class _TestCommon:
 
     def test_abs(self):
         A = matrix([[-1, 0, 17],[0, -5, 0],[1, -4, 0],[0,0,0]],'d')
-        print(self.spmatrix(A).todense())
         assert_equal(abs(A),abs(self.spmatrix(A)).todense())
         
     def test_elementwise_power(self):

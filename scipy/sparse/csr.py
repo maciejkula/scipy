@@ -148,6 +148,11 @@ class csr_matrix(_cs_matrix, IndexMixin):
 
         return lil
 
+    def tofastlil(self):
+
+        from .fast_lil import fast_lil_matrix
+        return fast_lil_matrix(self)
+
     def tocsr(self, copy=False):
         if copy:
             return self.copy()

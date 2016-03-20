@@ -63,12 +63,18 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
     """
     """
 
+    cdef {{IDX_T}} rows
+    cdef {{IDX_T}} cols
+
     cdef vector[vector[{{IDX_T}}]] indices
     cdef vector[vector[{{VALUE_T}}]] data
 
-    def __init__(self, {{IDX_T}} num_rows):
+    def __init__(self, {{IDX_T}} rows, {{IDX_T}} cols):
 
-        for i in range(num_rows):
+        self.rows = rows
+        self.cols = cols
+
+        for i in range(self.rows):
             self.indices.push_back(vector[{{IDX_T}}]())
             self.data.push_back(vector[{{VALUE_T}}]())
 
@@ -131,36 +137,145 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         else:
             return 0
 
-    cpdef {{IDX_T}} getnnz(self):
+    cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} slc(self,
+                                                    {{IDX_T}} row_start,
+                                                    {{IDX_T}} row_stop,
+                                                    {{IDX_T}} col_start,
+                                                    {{IDX_T}} col_stop):
 
-        cdef {{IDX_T}} i
+        cdef {{IDX_T}} rows, cols, i, j, col
+        cdef {{VALUE_T}} value
+        cdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} mat
+        cdef vector[{{IDX_T}}] *row_indices
+        cdef vector[{{VALUE_T}}] *row_data
+
+        rows = row_stop - row_start
+        cols = col_stop - col_start
+
+        mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(rows, cols)
+
+        for i in range(row_start, row_stop):
+            row_indices = &(self.indices[i])
+            row_data = &(self.data[i])
+            for j in range(row_indices.size()):
+                col = deref(row_indices)[j]
+                value = deref(row_data)[j]
+
+                if col >= col_start and col < col_stop:
+                    mat.set(i - row_start, col - col_start, value)
+
+        return mat
+
+    cpdef mul(self, {{VALUE_T}} value):
+
+        cdef vector[{{VALUE_T}}] *row_data
+        cdef {{IDX_T}} i, j
+
+        for i in range(self.rows):
+            row_data = &(self.data[i])
+            for j in range(row_data.size()):
+                deref(row_data)[j] = deref(row_data)[j] * value
+
+    cpdef {{IDX_T}} getnnz(self, axis):
+
+        cdef {{IDX_T}} i, j, col
         cdef {{IDX_T}} nnz = 0
 
-        for i in range(self.indices.size()):
-            nnz += self.indices[i].size()
+        cdef vector[{{IDX_T}}] *row_indices
+        cdef cnp.ndarray[{{IDX_T}}, ndim=1] nnz_array
 
-        return nnz
+        if axis is None:
+            nnz = 0
+
+            for i in range(self.indices.size()):
+                nnz += self.indices[i].size()
+
+            return nnz
+
+        if axis == 0:
+            nnz_array = np.empty(self.rows, dtype=np.{{PYIDX}})
+
+            for i in range(self.rows):
+                nnz_array[i] = self.indices[i].size()
+
+            return nnz_array
+
+        if axis == 1:
+            nnz_array = np.zeros(self.cols, dtype=np.{{PYIDX}})
+
+            for i in range(self.rows):
+
+                row_indices = &(self.indices[i])
+
+                for j in range(row_indices.size()):
+                    col = deref(row_indices)[j]
+                    nnz_array[col] += 1
+
+            return nnz_array
 
     cpdef get_row(self, {{IDX_T}} row):
 
         return (np.array(self.indices[row]),
                 np.array(self.data[row]))
 
+    cpdef fromcsr(self,
+                  cnp.ndarray[{{IDX_T}}, ndim=1] indices,
+                  cnp.ndarray[{{IDX_T}}, ndim=1] indptr,
+                  {{if PYVALUE == 'bool'}}
+                  cnp.ndarray[cnp.npy_uint8, ndim=1] data
+                  {{else}}
+                  cnp.ndarray[{{VALUE_T}}, ndim=1] data
+                  {{endif}}
+                  ):
+
+        cdef {{IDX_T}} i, j, row_start, row_stop
+
+        cdef vector[{{IDX_T}}] *row_indices
+        cdef vector[{{VALUE_T}}] *row_data
+
+        for i in range(self.rows):
+
+            row_start = indptr[i]
+            row_stop = indptr[i + 1]
+
+            row_indices = &(self.indices[i])
+            row_data = &(self.data[i])
+
+            row_indices.clear()
+            row_data.clear()
+
+            row_indices.reserve(row_stop - row_start)
+            row_data.reserve(row_stop - row_start)
+
+            for j in range(row_start, row_stop):
+                row_indices.push_back(indices[j])
+                row_data.push_back(data[j])
+
     cpdef tocsr(self):
 
         cdef cnp.ndarray[{{IDX_T}}, ndim=1] indices
         cdef cnp.ndarray[{{IDX_T}}, ndim=1] indptr
+
+        {{if PYVALUE == 'bool'}}
+        cdef cnp.ndarray[cnp.npy_uint8, ndim=1] data
+        {{else}}
         cdef cnp.ndarray[{{VALUE_T}}, ndim=1] data
+        {{endif}}
 
         cdef vector[{{IDX_T}}] *row_indices
         cdef vector[{{VALUE_T}}] *row_data
 
         cdef {{IDX_T}} i, j, idx
-        cdef {{IDX_T}} nnz = self.getnnz()
+        cdef {{IDX_T}} nnz = self.getnnz(None)
 
         indices = np.empty(nnz, dtype=np.{{PYIDX}})
         indptr = np.empty(self.indices.size() + 1, dtype=np.{{PYIDX}})
+
+        {{if PYVALUE == 'bool'}}
+        data = np.empty(nnz, dtype=np.uint8)
+        {{else}}
         data = np.empty(nnz, dtype=np.{{PYVALUE}})
+        {{endif}}
 
         idx = 0
         indptr[0] = 0
@@ -178,9 +293,18 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
             indptr[i + 1] = indptr[i] + row_indices.size()
 
         return indices, indptr, data
+
+    cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} copy(self):
+
+        cdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} mat
+
+        mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(self.rows, self.cols)
+
+        mat.indices = vector[vector[{{IDX_T}}]](self.indices)
+        mat.data = vector[vector[{{VALUE_T}}]](self.data)
+
+        return mat
 {{endfor}}
-
-
 
 
 {{for PYIDX, IDX_T in get_dispatch(IDX_TYPES)}}
@@ -202,8 +326,7 @@ cdef {{IDX_T}} binary_search_{{PYIDX}}({{IDX_T}}* vec, {{IDX_T}} size, {{IDX_T}}
 
     if (first == size):
         return first
-    elif vec[first] > x:
-        return first
     else:
-        return first + 1
+        return first
+
 {{endfor}}

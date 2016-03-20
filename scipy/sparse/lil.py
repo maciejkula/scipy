@@ -436,6 +436,10 @@ class lil_matrix(spmatrix, IndexMixin):
         else:
             return self
 
+    def tofastlil(self):
+
+        return self.tocsr().tofastlil()
+
     def tocsr(self):
         """ Return Compressed Sparse Row format arrays for this matrix.
         """

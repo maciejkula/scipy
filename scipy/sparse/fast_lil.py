@@ -14,6 +14,7 @@ from .base import spmatrix, isspmatrix
 from .sputils import (getdtype, isshape, isscalarlike, IndexMixin,
                       upcast_scalar, get_index_dtype, isintlike)
 from . import _fastlil
+from .lil import isspmatrix_lil
 
 
 class fast_lil_matrix(spmatrix, IndexMixin):
@@ -79,7 +80,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
 
     """
-    format = 'lil'
+    format = 'fastlil'
 
     def __init__(self, arg1, shape=None, dtype=None, copy=False):
         spmatrix.__init__(self)
@@ -87,10 +88,8 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
         # First get the shape
         if isspmatrix(arg1):
-            if isspmatrix_lil(arg1) and copy:
-                A = arg1.copy()
-            else:
-                A = arg1.tolil()
+
+            A = arg1
 
             if dtype is not None:
                 A = A.astype(dtype)
@@ -98,8 +97,18 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             self.shape = A.shape
             self.dtype = A.dtype
 
-            self._matrix = self._get_matrix()
-            self._from_lil(A)
+            if isspmatrix_fast_lil(A):
+                if copy:
+                    A = A.copy()
+                self._matrix = A._matrix
+            else:
+                A = A.tocsr()
+                self._matrix = self._get_matrix()
+
+                if A.data.dtype == np.bool:
+                    self._matrix.fromcsr(A.indices, A.indptr, A.data.astype(np.uint8))
+                else:
+                    self._matrix.fromcsr(A.indices, A.indptr, A.data)
 
         elif isinstance(arg1, tuple):
             if isshape(arg1):
@@ -107,6 +116,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
                     raise ValueError('invalid use of shape parameter')
                 M, N = arg1
                 self.shape = (M, N)
+                self._matrix = self._get_matrix()
             else:
                 raise TypeError('unrecognized lil_matrix constructor usage')
         else:
@@ -117,21 +127,26 @@ class fast_lil_matrix(spmatrix, IndexMixin):
                 raise TypeError('unsupported matrix type')
             else:
                 from .csr import csr_matrix
-                A = csr_matrix(A, dtype=dtype).tolil()
+                A = csr_matrix(A, dtype=dtype)
 
                 self.shape = A.shape
                 self.dtype = A.dtype
                 self._matrix = self._get_matrix()
-                self._from_lil(A)
+
+                if A.data.dtype == np.bool:
+                    self._matrix.fromcsr(A.indices, A.indptr, A.data.astype(np.uint8))
+                else:
+                    self._matrix.fromcsr(A.indices, A.indptr, A.data)
 
     def _get_matrix(self):
 
-        num_rows = self.shape[0]
+        rows, cols = self.shape
 
         return getattr(_fastlil,
                        'fast_lil_matrix_{}_{}'.format(
                            'int32',
-                           str(self.dtype)))(np.int32(num_rows))
+                           str(self.dtype)))(np.int32(rows),
+                                             np.int32(cols))
 
     def _set(self, row, col, value):
 
@@ -208,19 +223,17 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             Select between the number of values across the whole matrix, in
             each column, or in each row.
         """
+
         if axis is None:
-            return sum([len(rowvals) for rowvals in self.data])
+            return self._matrix.getnnz(None)
         if axis < 0:
             axis += 2
-        if axis == 0:
-            out = np.zeros(self.shape[1], dtype=np.intp)
-            for row in self.rows:
-                out[row] += 1
-            return out
-        elif axis == 1:
-            return np.array([len(rowvals) for rowvals in self.data], dtype=np.intp)
+
+        if axis in (0, 1):
+            return self._matrix.getnnz(axis)
         else:
             raise ValueError('axis out of bounds')
+
     nnz = property(fget=getnnz)
 
     def __str__(self):
@@ -275,10 +288,11 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             # handled below.
             if ((isinstance(i, int) or isinstance(i, np.integer)) and
                     (isinstance(j, int) or isinstance(j, np.integer))):
-                v = _csparsetools.lil_get1(self.shape[0], self.shape[1],
-                                           self.rows, self.data,
-                                           i, j)
-                return self.dtype.type(v)
+
+                i = self._check_row_bounds(i)
+                j = self._check_col_bounds(j)
+
+                return self._matrix.get(i, j)
 
         # Utilities found in IndexMixin
         i, j = self._unpack_index(index)
@@ -288,41 +302,36 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         j_intlike = isintlike(j)
 
         if i_intlike and j_intlike:
-            v = _csparsetools.lil_get1(self.shape[0], self.shape[1],
-                                       self.rows, self.data,
-                                       i, j)
-            return self.dtype.type(v)
-        elif j_intlike or isinstance(j, slice):
-            # column slicing fast path
-            if j_intlike:
-                j = self._check_col_bounds(j)
-                j = slice(j, j+1)
+            i = self._check_row_bounds(i)
+            j = self._check_col_bounds(j)
+            return self._matrix.get(i, j)
 
-            if i_intlike:
-                i = self._check_row_bounds(i)
-                i = xrange(i, i+1)
-                i_shape = None
-            elif isinstance(i, slice):
-                i = xrange(*i.indices(self.shape[0]))
-                i_shape = None
-            else:
-                i = np.atleast_1d(i)
-                i_shape = i.shape
+        if i_intlike:
+            i = self._check_row_bounds(i)
+            row_start = i
+            row_stop = i + 1
+        elif isinstance(i, slice):
+            row_start, row_stop, _ = i.indices(self.shape[0])
+        else:
+            raise ValueError
 
-            if i_shape is None or len(i_shape) == 1:
-                return self._get_row_ranges(i, j)
+        if j_intlike:
+            j = self._check_col_bounds(j)
+            col_start = j
+            col_stop = j + 1
+        elif isinstance(j, slice):
+            col_start, col_stop, _ = j.indices(self.shape[1])
+        else:
+            raise ValueError
 
-        i, j = self._index_to_arrays(i, j)
-        if i.size == 0:
-            return lil_matrix(i.shape, dtype=self.dtype)
+        new_shape = (row_stop - row_start,
+                     col_stop - col_start)
 
-        new = lil_matrix(i.shape, dtype=self.dtype)
-
-        i, j = _prepare_index_for_memoryview(i, j)
-        _csparsetools.lil_fancy_get(self.shape[0], self.shape[1],
-                                    self.rows, self.data,
-                                    new.rows, new.data,
-                                    i, j)
+        new = fast_lil_matrix(new_shape, dtype=self.dtype)
+        new._matrix = self._matrix.slc(row_start,
+                                       row_stop,
+                                       col_start,
+                                       col_stop)
         return new
 
     def _get_row_ranges(self, rows, col_slice):
@@ -368,8 +377,11 @@ class fast_lil_matrix(spmatrix, IndexMixin):
                 if x.size > 1:
                     # Triggered if input was an ndarray
                     raise ValueError("Trying to assign a sequence to an item")
-                _csparsetools.lil_insert(self.shape[0], self.shape[1],
-                                         self.rows, self.data, i, j, x)
+
+                i = self._check_row_bounds(i)
+                j = self._check_col_bounds(j)
+
+                self._matrix.set(i, j, x)
                 return
 
         # General indexing
@@ -405,32 +417,29 @@ class fast_lil_matrix(spmatrix, IndexMixin):
     def _mul_scalar(self, other):
         if other == 0:
             # Multiply by zero: return the zero matrix
-            new = lil_matrix(self.shape, dtype=self.dtype)
+            new = fast_lil_matrix(self.shape, dtype=self.dtype)
         else:
             res_dtype = upcast_scalar(self.dtype, other)
 
             new = self.copy()
             new = new.astype(res_dtype)
-            # Multiply this scalar by every element.
-            for j, rowvals in enumerate(new.data):
-                new.data[j] = [val*other for val in rowvals]
+            new._matrix.mul(new.dtype.type(other))
+
         return new
 
     def __truediv__(self, other):           # self / other
         if isscalarlike(other):
             new = self.copy()
-            # Divide every element by this scalar
-            for j, rowvals in enumerate(new.data):
-                new.data[j] = [val/other for val in rowvals]
+            new._matrix.mul(1 / new.dtype.type(other))
             return new
         else:
             return self.tocsr() / other
 
     def copy(self):
-        from copy import deepcopy
-        new = lil_matrix(self.shape, dtype=self.dtype)
-        new.data = deepcopy(self.data)
-        new.rows = deepcopy(self.rows)
+
+        new = fast_lil_matrix(self.shape, dtype=self.dtype)
+        new._matrix = self._matrix.copy()
+
         return new
 
     def reshape(self,shape):
@@ -457,7 +466,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
     def transpose(self):
         return self.tocsr().transpose().tolil()
 
-    def tolil(self, copy=False):
+    def tofastlil(self, copy=False):
         if copy:
             return self.copy()
         else:
@@ -468,6 +477,9 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         """
 
         indices, indptr, data = self._matrix.tocsr()
+
+        if self.dtype == np.bool:
+            data = data.astype(np.bool)
 
         from .csr import csr_matrix
         return csr_matrix((data, indices, indptr), shape=self.shape)
@@ -520,4 +532,4 @@ def _prepare_index_for_memoryview(i, j, x=None):
 
 
 def isspmatrix_fast_lil(x):
-    return isinstance(x, lil_matrix)
+    return isinstance(x, fast_lil_matrix)
