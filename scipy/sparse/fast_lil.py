@@ -297,12 +297,32 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         # Utilities found in IndexMixin
         i, j = self._unpack_index(index)
 
+        i_intlike = False
+        i_slice = False
+        i_list = False
+
+        j_intlike = False
+        j_slice = False
+        j_list= False
 
         # Proper check for other scalar index types
-        i_intlike = isintlike(i)
-        j_intlike = isintlike(j)
-        i_slice = isinstance(i, slice)
-        j_slice = isinstance(j, slice)
+        if isintlike(i):
+            i_intlike = True
+        elif isinstance(i, slice):
+            i_slice = True
+        elif isinstance(i, (list, np.ndarray)):
+            i_list = True
+        else:
+            raise ValueError
+
+        if isintlike(j):
+            j_intlike = True
+        elif isinstance(j, slice):
+            j_slice = True
+        elif isinstance(j, (list, np.ndarray)):
+            j_list = True
+        else:
+            raise ValueError
 
         if i_intlike and j_intlike:
             i = self._check_row_bounds(i)
@@ -314,7 +334,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             row_indices = np.array([i], dtype=np.int32)
         elif i_slice:
             row_indices = np.arange(*i.indices(self.shape[0]), dtype=np.int32)
-        elif isinstance(i, (list, np.ndarray)):
+        elif i_list:
             row_indices = np.array(i, dtype=np.int32)
         else:
             raise ValueError
@@ -324,16 +344,19 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             col_indices = np.array([j], dtype=np.int32)
         elif j_slice:
             col_indices = np.arange(*j.indices(self.shape[1]), dtype=np.int32)
-        elif isinstance(j, (list, np.ndarray)):
+        elif j_list:
             col_indices = np.array(j, dtype=np.int32)
         else:
             raise ValueError
 
         if (
             row_indices.ndim == 1 and col_indices.ndim == 1
-                and row_indices.shape == col_indices.shape
-                and not i_slice and not j_slice
+                and i_list and j_list
         ):
+
+            if row_indices.shape != col_indices.shape:
+                raise IndexError
+
             new_shape = (1, len(row_indices))
             new = fast_lil_matrix(new_shape, dtype=self.dtype)
             new._matrix = self._matrix.fancy_get_elems(row_indices,
@@ -491,8 +514,6 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         """
 
         indices, indptr, data = self._matrix.tocsr()
-        print(indices, indptr, data)
-        print(self.shape)
 
         if self.dtype == np.bool:
             data = data.astype(np.bool)
