@@ -245,6 +245,10 @@ class dia_matrix(_data_matrix):
         #this could be faster
         return self.tocoo().tocsc()
 
+    def tofastlil(self):
+
+        return self.tocsr().tofastlil()
+
     def tocoo(self):
         num_rows, num_cols = self.shape
         num_offsets, offset_len = self.data.shape
