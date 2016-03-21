@@ -2346,39 +2346,39 @@ class _TestFancyIndexing:
         A = self.spmatrix(B)
 
         # [i]
-        # assert_equal(A[[1,3]].todense(), B[[1,3]])
+        assert_equal(A[[1,3]].todense(), B[[1,3]])
 
-        # # [i,[1,2]]
-        # assert_equal(A[3,[1,3]].todense(), B[3,[1,3]])
-        # assert_equal(A[-1,[2,-5]].todense(),B[-1,[2,-5]])
-        # assert_equal(A[array(-1),[2,-5]].todense(),B[-1,[2,-5]])
-        # assert_equal(A[-1,array([2,-5])].todense(),B[-1,[2,-5]])
-        # assert_equal(A[array(-1),array([2,-5])].todense(),B[-1,[2,-5]])
+        # [i,[1,2]]
+        assert_equal(A[3,[1,3]].todense(), B[3,[1,3]])
+        assert_equal(A[-1,[2,-5]].todense(),B[-1,[2,-5]])
+        assert_equal(A[array(-1),[2,-5]].todense(),B[-1,[2,-5]])
+        assert_equal(A[-1,array([2,-5])].todense(),B[-1,[2,-5]])
+        assert_equal(A[array(-1),array([2,-5])].todense(),B[-1,[2,-5]])
 
-        # # [1:2,[1,2]]
-        # assert_equal(A[:,[2,8,3,-1]].todense(),B[:,[2,8,3,-1]])
-        # assert_equal(A[3:4,[9]].todense(), B[3:4,[9]])
-        # assert_equal(A[1:4,[-1,-5]].todense(), B[1:4,[-1,-5]])
-        # assert_equal(A[1:4,array([-1,-5])].todense(), B[1:4,[-1,-5]])
+        # [1:2,[1,2]]
+        assert_equal(A[:,[2,8,3,-1]].todense(),B[:,[2,8,3,-1]])
+        assert_equal(A[3:4,[9]].todense(), B[3:4,[9]])
+        assert_equal(A[1:4,[-1,-5]].todense(), B[1:4,[-1,-5]])
+        assert_equal(A[1:4,array([-1,-5])].todense(), B[1:4,[-1,-5]])
 
-        # # [[1,2],j]
-        # assert_equal(A[[1,3],3].todense(), B[[1,3],3])
-        # assert_equal(A[[2,-5],-4].todense(), B[[2,-5],-4])
-        # assert_equal(A[array([2,-5]),-4].todense(), B[[2,-5],-4])
-        # assert_equal(A[[2,-5],array(-4)].todense(), B[[2,-5],-4])
-        # assert_equal(A[array([2,-5]),array(-4)].todense(), B[[2,-5],-4])
+        # [[1,2],j]
+        assert_equal(A[[1,3],3].todense(), B[[1,3],3])
+        assert_equal(A[[2,-5],-4].todense(), B[[2,-5],-4])
+        assert_equal(A[array([2,-5]),-4].todense(), B[[2,-5],-4])
+        assert_equal(A[[2,-5],array(-4)].todense(), B[[2,-5],-4])
+        assert_equal(A[array([2,-5]),array(-4)].todense(), B[[2,-5],-4])
 
-        # # [[1,2],1:2]
-        # assert_equal(A[[1,3],:].todense(), B[[1,3],:])
-        # assert_equal(A[[2,-5],8:-1].todense(),B[[2,-5],8:-1])
-        # assert_equal(A[array([2,-5]),8:-1].todense(),B[[2,-5],8:-1])
+        # [[1,2],1:2]
+        assert_equal(A[[1,3],:].todense(), B[[1,3],:])
+        assert_equal(A[[2,-5],8:-1].todense(),B[[2,-5],8:-1])
+        assert_equal(A[array([2,-5]),8:-1].todense(),B[[2,-5],8:-1])
 
-        # # [[1,2],[1,2]]
-        # assert_equal(todense(A[[1,3],[2,4]]), B[[1,3],[2,4]])
-        # assert_equal(todense(A[[-1,-3],[2,-4]]), B[[-1,-3],[2,-4]])
-        # assert_equal(todense(A[array([-1,-3]),[2,-4]]), B[[-1,-3],[2,-4]])
-        # assert_equal(todense(A[[-1,-3],array([2,-4])]), B[[-1,-3],[2,-4]])
-        # assert_equal(todense(A[array([-1,-3]),array([2,-4])]), B[[-1,-3],[2,-4]])
+        # [[1,2],[1,2]]
+        assert_equal(todense(A[[1,3],[2,4]]), B[[1,3],[2,4]])
+        assert_equal(todense(A[[-1,-3],[2,-4]]), B[[-1,-3],[2,-4]])
+        assert_equal(todense(A[array([-1,-3]),[2,-4]]), B[[-1,-3],[2,-4]])
+        assert_equal(todense(A[[-1,-3],array([2,-4])]), B[[-1,-3],[2,-4]])
+        assert_equal(todense(A[array([-1,-3]),array([2,-4])]), B[[-1,-3],[2,-4]])
 
         # # [[[1],[2]],[1,2]]
         assert_equal(A[[[1],[3]],[2,4]].todense(), B[[[1],[3]],[2,4]])

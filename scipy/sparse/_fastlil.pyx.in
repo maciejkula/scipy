@@ -115,8 +115,6 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         cdef vector[{{VALUE_T}}] *row_data
         cdef {{IDX_T}} idx, col_at_idx
 
-        print('(((((', row, col)
-
         if row < 0:
             row = self.rows + row
 
@@ -128,8 +126,6 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
         if col < 0:
             col = self.cols + col
-
-        print('----', row, col)
 
         if row_indices.size() == 0:
             return 0
@@ -147,6 +143,35 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         else:
             return 0
 
+    cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get_elems(self,
+                                                                cnp.ndarray[{{IDX_T}}, ndim=1] row_indices,
+                                                                cnp.ndarray[{{IDX_T}}, ndim=1] col_indices):
+        cdef {{IDX_T}} rows, cols, row_idx, col_idx, i
+        cdef {{VALUE_T}} value
+        cdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} mat
+        cdef vector[{{IDX_T}}] *row_indices_vec
+        cdef vector[{{VALUE_T}}] *row_data_vec
+
+        # Individual element access
+        rows = 1
+        cols = row_indices.shape[0]
+
+        mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(rows, cols)
+        row_indices_vec = &(mat.indices[0])
+        row_data_vec = &(mat.data[0])
+
+        for i in range(cols):
+            row_idx = row_indices[i]
+            col_idx = col_indices[i]
+
+            value = self.get(row_idx, col_idx)
+
+            if value != 0:
+                row_indices_vec.push_back(i)
+                row_data_vec.push_back(value)
+
+        return mat
+
     cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get(self,
                                                           cnp.ndarray[{{IDX_T}}, ndim=1] row_indices,
                                                           cnp.ndarray[{{IDX_T}}, ndim=1] col_indices):
@@ -157,35 +182,6 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         cdef vector[{{IDX_T}}] *row_indices_vec
         cdef vector[{{VALUE_T}}] *row_data_vec
 
-        # Individual element access
-        if row_indices.shape[0] != 1 and col_indices.shape[0] != 1:
-            print('indices', row_indices, col_indices)
-            rows = 1
-            cols = row_indices.shape[0]
-            print('shape', rows, cols)
-
-            mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(rows, cols)
-            row_indices_vec = &(mat.indices[0])
-            row_data_vec = &(mat.data[0])
-
-            for i in range(cols):
-                row_idx = row_indices[i]
-                col_idx = col_indices[i]
-
-                value = self.get(row_idx, col_idx)
-                print(row_idx, col_idx, value)
-
-                if value != 0:
-                    print('pushing')
-                    row_indices_vec.push_back(i)
-                    row_data_vec.push_back(value)
-                    print('pushed')
-
-            print('returning')
-            return mat
-
-        print('wat')
-                
         # Row-wise or column-wise access
         rows = row_indices.shape[0]
         cols = col_indices.shape[0]

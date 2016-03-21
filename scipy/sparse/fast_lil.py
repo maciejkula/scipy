@@ -297,9 +297,12 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         # Utilities found in IndexMixin
         i, j = self._unpack_index(index)
 
+
         # Proper check for other scalar index types
         i_intlike = isintlike(i)
         j_intlike = isintlike(j)
+        i_slice = isinstance(i, slice)
+        j_slice = isinstance(j, slice)
 
         if i_intlike and j_intlike:
             i = self._check_row_bounds(i)
@@ -309,7 +312,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         if i_intlike:
             i = self._check_row_bounds(i)
             row_indices = np.array([i], dtype=np.int32)
-        elif isinstance(i, slice):
+        elif i_slice:
             row_indices = np.arange(*i.indices(self.shape[0]), dtype=np.int32)
         elif isinstance(i, (list, np.ndarray)):
             row_indices = np.array(i, dtype=np.int32)
@@ -319,22 +322,29 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         if j_intlike:
             j = self._check_col_bounds(j)
             col_indices = np.array([j], dtype=np.int32)
-        elif isinstance(j, slice):
+        elif j_slice:
             col_indices = np.arange(*j.indices(self.shape[1]), dtype=np.int32)
         elif isinstance(j, (list, np.ndarray)):
             col_indices = np.array(j, dtype=np.int32)
         else:
             raise ValueError
 
-        if row_indices.shape[0] != 1 and col_indices.shape[0] != 1:
+        if (
+            row_indices.ndim == 1 and col_indices.ndim == 1
+                and row_indices.shape == col_indices.shape
+                and not i_slice and not j_slice
+        ):
             new_shape = (1, len(row_indices))
+            new = fast_lil_matrix(new_shape, dtype=self.dtype)
+            new._matrix = self._matrix.fancy_get_elems(row_indices,
+                                                       col_indices)
+
         else:
             new_shape = (len(row_indices),
                          len(col_indices))
-
-        new = fast_lil_matrix(new_shape, dtype=self.dtype)
-        new._matrix = self._matrix.fancy_get(row_indices,
-                                             col_indices)
+            new = fast_lil_matrix(new_shape, dtype=self.dtype)
+            new._matrix = self._matrix.fancy_get(row_indices.flatten(),
+                                                 col_indices.flatten())
 
         return new
 
