@@ -255,10 +255,8 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         """Returns a copy of the 'i'th row.
         """
         i = self._check_row_bounds(i)
-        new = lil_matrix((1, self.shape[1]), dtype=self.dtype)
-        new.rows[0] = self.rows[i][:]
-        new.data[0] = self.data[i][:]
-        return new
+
+        return self[i, :]
 
     def _check_row_bounds(self, i):
         if i < 0:
@@ -296,6 +294,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
         # Utilities found in IndexMixin
         i, j = self._unpack_index(index)
+        print(i, j)
 
         i_intlike = False
         i_slice = False
@@ -303,7 +302,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
         j_intlike = False
         j_slice = False
-        j_list= False
+        j_list = False
 
         # Proper check for other scalar index types
         if isintlike(i):
@@ -349,11 +348,17 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         else:
             raise ValueError
 
+        print(row_indices, col_indices)
+        if row_indices.size == 0 or col_indices.size == 0:
+            new_shape = (max(row_indices.size,
+                             col_indices.size), 0)
+
+            return fast_lil_matrix(new_shape, dtype=self.dtype)
+
         if (
             row_indices.ndim == 1 and col_indices.ndim == 1
                 and i_list and j_list
         ):
-
             if row_indices.shape != col_indices.shape:
                 raise IndexError
 
@@ -361,7 +366,6 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             new = fast_lil_matrix(new_shape, dtype=self.dtype)
             new._matrix = self._matrix.fancy_get_elems(row_indices,
                                                        col_indices)
-
         else:
             new_shape = (len(row_indices),
                          len(col_indices))
