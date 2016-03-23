@@ -85,6 +85,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
     def __init__(self, arg1, shape=None, dtype=None, copy=False):
         spmatrix.__init__(self)
         self.dtype = getdtype(dtype, arg1, default=float)
+        self.idx_dtype = np.dtype(np.int32)
 
         # First get the shape
         if isspmatrix(arg1):
@@ -144,18 +145,18 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
         return getattr(_fastlil,
                        'fast_lil_matrix_{}_{}'.format(
-                           'int32',
-                           str(self.dtype)))(np.int32(rows),
-                                             np.int32(cols))
+                           str(self.idx_dtype),
+                           str(self.dtype)))(np.intp(rows),
+                                             np.intp(cols))
 
     def _set(self, row, col, value):
 
-        self._matrix.set(np.int32(row), np.int32(col), self.dtype.type(value))
+        self._matrix.set(self.idx_dtype(row), self.idx_dtype(col), self.dtype.type(value))
 
     def _get(self, row, col, value):
 
-        return self._matrix.get(np.int32(row),
-                                np.int32(col),
+        return self._matrix.get(self.idx_dtype(row),
+                                self.idx_dtype(col),
                                 self.dtype.type(value))
 
     def _from_lil(self, lil_matrix):
@@ -294,7 +295,6 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
         # Utilities found in IndexMixin
         i, j = self._unpack_index(index)
-        print(i, j)
 
         i_intlike = False
         i_slice = False
@@ -328,54 +328,20 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             j = self._check_col_bounds(j)
             return self._matrix.get(i, j)
 
-        if i_intlike:
-            i = self._check_row_bounds(i)
-            row_indices = np.array([i], dtype=np.int32)
-        elif i_slice:
-            row_indices = np.arange(*i.indices(self.shape[0]), dtype=np.int32)
-        elif i_list:
-            row_indices = np.array(i, dtype=np.int32)
-        else:
-            raise ValueError
+        # Full-blown indexing
+        i, j = self._index_to_arrays(i, j)
 
-        if j_intlike:
-            j = self._check_col_bounds(j)
-            col_indices = np.array([j], dtype=np.int32)
-        elif j_slice:
-            col_indices = np.arange(*j.indices(self.shape[1]), dtype=np.int32)
-        elif j_list:
-            col_indices = np.array(j, dtype=np.int32)
-        else:
-            raise ValueError
+        if i.size == 0:
+            return fast_lil_matrix(i.shape, dtype=self.dtype)
 
-        print(row_indices.ndim, col_indices.ndim)
-        print(row_indices, col_indices)
+        i, j = _prepare_index_for_memoryview(i, j, self.idx_dtype)
+        new_rows, new_cols = i.shape
 
-        if row_indices.ndim > 2 or col_indices.ndim > 2:
-            raise IndexError
-
-        if row_indices.size == 0 or col_indices.size == 0:
-            # Todo: understand how to make this work
-            from .csr import csr_matrix
-            return csr_matrix(self.shape, dtype=self.dtype)[index].tofastlil()
-
-        if (
-            row_indices.ndim == 1 and col_indices.ndim == 1
-                and i_list and j_list
-        ):
-            if row_indices.shape != col_indices.shape:
-                raise IndexError
-
-            new_shape = (1, len(row_indices))
-            new = fast_lil_matrix(new_shape, dtype=self.dtype)
-            new._matrix = self._matrix.fancy_get_elems(row_indices,
-                                                       col_indices)
-        else:
-            new_shape = (len(row_indices),
-                         len(col_indices))
-            new = fast_lil_matrix(new_shape, dtype=self.dtype)
-            new._matrix = self._matrix.fancy_get(row_indices.flatten(),
-                                                 col_indices.flatten())
+        new = fast_lil_matrix(i.shape, dtype=self.dtype)
+        new._matrix = self._matrix.fancy_get(new_rows,
+                                             new_cols,
+                                             i,
+                                             j)
 
         return new
 
@@ -535,7 +501,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         return self.tocsr().tocsc()
 
 
-def _prepare_index_for_memoryview(i, j, x=None):
+def _prepare_index_for_memoryview(i, j, idx_dtype, x=None):
     """
     Convert index and data arrays to form suitable for passing to the
     Cython fancy getset routines.
@@ -558,15 +524,13 @@ def _prepare_index_for_memoryview(i, j, x=None):
         Re-formatted arrays (x is omitted, if input was None)
 
     """
-    if i.dtype > j.dtype:
-        j = j.astype(i.dtype)
-    elif i.dtype < j.dtype:
-        i = i.astype(j.dtype)
 
-    if not i.flags.writeable or i.dtype not in (np.int32, np.int64):
-        i = i.astype(np.intp)
-    if not j.flags.writeable or j.dtype not in (np.int32, np.int64):
-        j = j.astype(np.intp)
+    print(idx_dtype)
+
+    if not i.flags.writeable or i.dtype is not idx_dtype:
+        i = i.astype(idx_dtype)
+    if not j.flags.writeable or j.dtype is not idx_dtype:
+        j = j.astype(idx_dtype)
 
     if x is not None:
         if not x.flags.writeable:
