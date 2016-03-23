@@ -348,12 +348,16 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         else:
             raise ValueError
 
+        print(row_indices.ndim, col_indices.ndim)
         print(row_indices, col_indices)
-        if row_indices.size == 0 or col_indices.size == 0:
-            new_shape = (max(row_indices.size,
-                             col_indices.size), 0)
 
-            return fast_lil_matrix(new_shape, dtype=self.dtype)
+        if row_indices.ndim > 2 or col_indices.ndim > 2:
+            raise IndexError
+
+        if row_indices.size == 0 or col_indices.size == 0:
+            # Todo: understand how to make this work
+            from .csr import csr_matrix
+            return csr_matrix(self.shape, dtype=self.dtype)[index].tofastlil()
 
         if (
             row_indices.ndim == 1 and col_indices.ndim == 1
