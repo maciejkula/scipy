@@ -13,8 +13,8 @@ from numpy import (pi, asarray, floor, isscalar, iscomplex, real, imag, sqrt,
                    where, mgrid, sin, place, issubdtype, extract,
                    less, inexact, nan, zeros, atleast_1d, sinc)
 from ._ufuncs import (ellipkm1, mathieu_a, mathieu_b, iv, jv, gamma, psi, zeta,
-                      hankel1, hankel2, yv, kv, gammaln, ndtri, errprint, poch,
-                      binom)
+                      hankel1, hankel2, yv, kv, gammaln, ndtri,
+                      errprint, poch, binom, hyp0f1)
 from . import specfun
 from . import orthogonal
 
@@ -642,6 +642,9 @@ def h2vp(v, z, n=1):
         return _bessel_diff_formula(v, z, n, hankel2, -1)
 
 
+@np.deprecate(message="scipy.special.sph_jn is deprecated in scipy 0.18.0. "
+                      "Use scipy.special.spherical_jn instead. "
+                      "Note that the new function has a different signature.")
 def sph_jn(n, z):
     """Compute spherical Bessel function jn(z) and derivative.
 
@@ -661,6 +664,10 @@ def sph_jn(n, z):
         Value of j0(z), ..., jn(z)
     jnp : ndarray
         First derivative j0'(z), ..., jn'(z)
+
+    See also
+    --------
+    spherical_jn
 
     References
     ----------
@@ -684,6 +691,9 @@ def sph_jn(n, z):
     return jn[:(n+1)], jnp[:(n+1)]
 
 
+@np.deprecate(message="scipy.special.sph_yn is deprecated in scipy 0.18.0. "
+                      "Use scipy.special.spherical_yn instead. "
+                      "Note that the new function has a different signature.")
 def sph_yn(n, z):
     """Compute spherical Bessel function yn(z) and derivative.
 
@@ -703,6 +713,10 @@ def sph_yn(n, z):
         Value of y0(z), ..., yn(z)
     ynp : ndarray
         First derivative y0'(z), ..., yn'(z)
+
+    See also
+    --------
+    spherical_yn
 
     References
     ----------
@@ -726,6 +740,10 @@ def sph_yn(n, z):
     return yn[:(n+1)], ynp[:(n+1)]
 
 
+@np.deprecate(message="scipy.special.sph_jnyn is deprecated in scipy 0.18.0. "
+                      "Use scipy.special.spherical_jn and "
+                      "scipy.special.spherical_yn instead. "
+                      "Note that the new function has a different signature.")
 def sph_jnyn(n, z):
     """Compute spherical Bessel functions jn(z) and yn(z) and derivatives.
 
@@ -750,6 +768,11 @@ def sph_jnyn(n, z):
     ynp : ndarray
         First derivative y0'(z), ..., yn'(z)
 
+    See also
+    --------
+    spherical_jn
+    spherical_yn
+
     References
     ----------
     .. [1] Zhang, Shanjie and Jin, Jianming. "Computation of Special
@@ -773,6 +796,9 @@ def sph_jnyn(n, z):
     return jn[:(n+1)], jnp[:(n+1)], yn[:(n+1)], ynp[:(n+1)]
 
 
+@np.deprecate(message="scipy.special.sph_in is deprecated in scipy 0.18.0. "
+                      "Use scipy.special.spherical_in instead. "
+                      "Note that the new function has a different signature.")
 def sph_in(n, z):
     """Compute spherical Bessel function in(z) and derivative.
 
@@ -792,6 +818,10 @@ def sph_in(n, z):
         Value of i0(z), ..., in(z)
     inp : ndarray
         First derivative i0'(z), ..., in'(z)
+
+    See also
+    --------
+    spherical_in
 
     References
     ----------
@@ -815,6 +845,9 @@ def sph_in(n, z):
     return In[:(n+1)], Inp[:(n+1)]
 
 
+@np.deprecate(message="scipy.special.sph_kn is deprecated in scipy 0.18.0. "
+                      "Use scipy.special.spherical_kn instead. "
+                      "Note that the new function has a different signature.")
 def sph_kn(n, z):
     """Compute spherical Bessel function kn(z) and derivative.
 
@@ -834,6 +867,10 @@ def sph_kn(n, z):
         Value of k0(z), ..., kn(z)
     knp : ndarray
         First derivative k0'(z), ..., kn'(z)
+
+    See also
+    --------
+    spherical_kn
 
     References
     ----------
@@ -857,6 +894,10 @@ def sph_kn(n, z):
     return kn[:(n+1)], knp[:(n+1)]
 
 
+@np.deprecate(message="scipy.special.sph_inkn is deprecated in scipy 0.18.0. "
+                      "Use scipy.special.spherical_in and "
+                      "scipy.special.spherical_kn instead. "
+                      "Note that the new function has a different signature.")
 def sph_inkn(n, z):
     """Compute spherical Bessel functions in(z), kn(z), and derivatives.
 
@@ -880,6 +921,11 @@ def sph_inkn(n, z):
         Value of k0(z), ..., kn(z)
     knp : ndarray
         First derivative k0'(z), ..., kn'(z)
+
+    See also
+    --------
+    spherical_in
+    spherical_kn
 
     References
     ----------
@@ -1080,46 +1126,6 @@ def fresnel_zeros(nt):
     if (floor(nt) != nt) or (nt <= 0) or not isscalar(nt):
         raise ValueError("Argument must be positive scalar integer.")
     return specfun.fcszo(2, nt), specfun.fcszo(1, nt)
-
-
-def hyp0f1(v, z):
-    r"""Confluent hypergeometric limit function 0F1.
-
-    Parameters
-    ----------
-    v, z : array_like
-        Input values.
-
-    Returns
-    -------
-    hyp0f1 : ndarray
-        The confluent hypergeometric limit function.
-
-    Notes
-    -----
-    This function is defined as:
-
-    .. math:: _0F_1(v, z) = \sum_{k=0}^{\inf}\frac{z^k}{(v)_k k!}.
-
-    It's also the limit as q -> infinity of ``1F1(q;v;z/q)``, and satisfies
-    the differential equation :math:`f''(z) + vf'(z) = f(z)`.
-    """
-    v = atleast_1d(v)
-    z = atleast_1d(z)
-    v, z = np.broadcast_arrays(v, z)
-    if np.iscomplexobj(z):
-        res = np.empty_like(z)
-    else:
-        res = np.empty_like(z, dtype=np.float64)
-    poles = (v < 0) & (v == v.astype(int))
-    zeros = (z == 0)
-    pos = (z.real >= 0) & -zeros & -poles
-    neg = (z.real < 0) & -zeros & -poles
-    res[poles] = nan
-    res[zeros] = 1
-    res[pos] = z[pos]**((1.0 - v[pos])/2)*gamma(v[pos])*iv(v[pos] - 1, 2*sqrt(z[pos]))
-    res[neg] = (-z[neg])**((1.0 - v[neg])/2)*gamma(v[neg])*jv(v[neg] - 1, 2*sqrt(-z[neg]))
-    return res
 
 
 def assoc_laguerre(x, n, k=0.0):

@@ -29,6 +29,9 @@ generators of random matrices in the SO(N) and O(N) groups, respectively. They
 generate matrices in the Haar distribution, the only uniform distribution on
 these group manifolds.
 
+`scipy.stats.random_correlation` provides a generator for random
+correlation matrices, given specified eigenvalues.
+
 `scipy.interpolate` improvements
 --------------------------------
 
@@ -56,6 +59,11 @@ Backwards incompatible changes
 The convergence criterion for ``optimize.bisect``,
 ``optimize.brentq``, ``optimize.brenth``, and ``optimize.ridder`` now
 works the same as ``numpy.allclose``.
+
+The offset in ``ndimage.iterpolation.affine_transform``
+is now consistently added after the matrix is applied,
+independent of if the matrix is specified using a one-dimensional
+or a two-dimensional array.
 
 Other changes
 =============

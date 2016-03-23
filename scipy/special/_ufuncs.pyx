@@ -1090,21 +1090,17 @@ cdef void loop_i_d_dd_As_f_ff(char **args, np.npy_intp *dims, np.npy_intp *steps
         op1 += steps[2]
     sf_error.check_fpe(func_name)
 
-cdef void loop_d_id__As_ld_d(char **args, np.npy_intp *dims, np.npy_intp *steps, void *data) nogil:
+cdef void loop_D_lD__As_lD_D(char **args, np.npy_intp *dims, np.npy_intp *steps, void *data) nogil:
     cdef np.npy_intp i, n = dims[0]
     cdef void *func = (<void**>data)[0]
     cdef char *func_name = <char*>(<void**>data)[1]
     cdef char *ip0 = args[0]
     cdef char *ip1 = args[1]
     cdef char *op0 = args[2]
-    cdef double ov0
+    cdef double complex ov0
     for i in range(n):
-        if <int>(<long*>ip0)[0] == (<long*>ip0)[0]:
-            ov0 = (<double(*)(int, double) nogil>func)(<int>(<long*>ip0)[0], <double>(<double*>ip1)[0])
-        else:
-            sf_error.error(func_name, sf_error.DOMAIN, "invalid input argument")
-            ov0 = <double>NPY_NAN
-        (<double *>op0)[0] = <double>ov0
+        ov0 = (<double complex(*)(long, double complex) nogil>func)(<long>(<long*>ip0)[0], <double complex>(<double complex*>ip1)[0])
+        (<double complex *>op0)[0] = <double complex>ov0
         ip0 += steps[0]
         ip1 += steps[1]
         op0 += steps[2]
@@ -1188,6 +1184,26 @@ cdef void loop_i_D_DDDD_As_D_DDDD(char **args, np.npy_intp *dims, np.npy_intp *s
         op3 += steps[4]
     sf_error.check_fpe(func_name)
 
+cdef void loop_d_id__As_ld_d(char **args, np.npy_intp *dims, np.npy_intp *steps, void *data) nogil:
+    cdef np.npy_intp i, n = dims[0]
+    cdef void *func = (<void**>data)[0]
+    cdef char *func_name = <char*>(<void**>data)[1]
+    cdef char *ip0 = args[0]
+    cdef char *ip1 = args[1]
+    cdef char *op0 = args[2]
+    cdef double ov0
+    for i in range(n):
+        if <int>(<long*>ip0)[0] == (<long*>ip0)[0]:
+            ov0 = (<double(*)(int, double) nogil>func)(<int>(<long*>ip0)[0], <double>(<double*>ip1)[0])
+        else:
+            sf_error.error(func_name, sf_error.DOMAIN, "invalid input argument")
+            ov0 = <double>NPY_NAN
+        (<double *>op0)[0] = <double>ov0
+        ip0 += steps[0]
+        ip1 += steps[1]
+        op0 += steps[2]
+    sf_error.check_fpe(func_name)
+
 cdef void loop_g_g__As_g_g(char **args, np.npy_intp *dims, np.npy_intp *steps, void *data) nogil:
     cdef np.npy_intp i, n = dims[0]
     cdef void *func = (<void**>data)[0]
@@ -1227,6 +1243,54 @@ cdef _proto_ellip_harmonic_unsafe_t *_proto_ellip_harmonic_unsafe_t_var = &_func
 from lambertw cimport lambertw_scalar as _func_lambertw_scalar
 ctypedef double complex _proto_lambertw_scalar_t(double complex, long, double) nogil
 cdef _proto_lambertw_scalar_t *_proto_lambertw_scalar_t_var = &_func_lambertw_scalar
+from _spherical_bessel cimport spherical_in_real as _func_spherical_in_real
+ctypedef double _proto_spherical_in_real_t(long, double) nogil
+cdef _proto_spherical_in_real_t *_proto_spherical_in_real_t_var = &_func_spherical_in_real
+from _spherical_bessel cimport spherical_in_complex as _func_spherical_in_complex
+ctypedef double complex _proto_spherical_in_complex_t(long, double complex) nogil
+cdef _proto_spherical_in_complex_t *_proto_spherical_in_complex_t_var = &_func_spherical_in_complex
+from _spherical_bessel cimport spherical_in_d_real as _func_spherical_in_d_real
+ctypedef double _proto_spherical_in_d_real_t(long, double) nogil
+cdef _proto_spherical_in_d_real_t *_proto_spherical_in_d_real_t_var = &_func_spherical_in_d_real
+from _spherical_bessel cimport spherical_in_d_complex as _func_spherical_in_d_complex
+ctypedef double complex _proto_spherical_in_d_complex_t(long, double complex) nogil
+cdef _proto_spherical_in_d_complex_t *_proto_spherical_in_d_complex_t_var = &_func_spherical_in_d_complex
+from _spherical_bessel cimport spherical_jn_real as _func_spherical_jn_real
+ctypedef double _proto_spherical_jn_real_t(long, double) nogil
+cdef _proto_spherical_jn_real_t *_proto_spherical_jn_real_t_var = &_func_spherical_jn_real
+from _spherical_bessel cimport spherical_jn_complex as _func_spherical_jn_complex
+ctypedef double complex _proto_spherical_jn_complex_t(long, double complex) nogil
+cdef _proto_spherical_jn_complex_t *_proto_spherical_jn_complex_t_var = &_func_spherical_jn_complex
+from _spherical_bessel cimport spherical_jn_d_real as _func_spherical_jn_d_real
+ctypedef double _proto_spherical_jn_d_real_t(long, double) nogil
+cdef _proto_spherical_jn_d_real_t *_proto_spherical_jn_d_real_t_var = &_func_spherical_jn_d_real
+from _spherical_bessel cimport spherical_jn_d_complex as _func_spherical_jn_d_complex
+ctypedef double complex _proto_spherical_jn_d_complex_t(long, double complex) nogil
+cdef _proto_spherical_jn_d_complex_t *_proto_spherical_jn_d_complex_t_var = &_func_spherical_jn_d_complex
+from _spherical_bessel cimport spherical_kn_real as _func_spherical_kn_real
+ctypedef double _proto_spherical_kn_real_t(long, double) nogil
+cdef _proto_spherical_kn_real_t *_proto_spherical_kn_real_t_var = &_func_spherical_kn_real
+from _spherical_bessel cimport spherical_kn_complex as _func_spherical_kn_complex
+ctypedef double complex _proto_spherical_kn_complex_t(long, double complex) nogil
+cdef _proto_spherical_kn_complex_t *_proto_spherical_kn_complex_t_var = &_func_spherical_kn_complex
+from _spherical_bessel cimport spherical_kn_d_real as _func_spherical_kn_d_real
+ctypedef double _proto_spherical_kn_d_real_t(long, double) nogil
+cdef _proto_spherical_kn_d_real_t *_proto_spherical_kn_d_real_t_var = &_func_spherical_kn_d_real
+from _spherical_bessel cimport spherical_kn_d_complex as _func_spherical_kn_d_complex
+ctypedef double complex _proto_spherical_kn_d_complex_t(long, double complex) nogil
+cdef _proto_spherical_kn_d_complex_t *_proto_spherical_kn_d_complex_t_var = &_func_spherical_kn_d_complex
+from _spherical_bessel cimport spherical_yn_real as _func_spherical_yn_real
+ctypedef double _proto_spherical_yn_real_t(long, double) nogil
+cdef _proto_spherical_yn_real_t *_proto_spherical_yn_real_t_var = &_func_spherical_yn_real
+from _spherical_bessel cimport spherical_yn_complex as _func_spherical_yn_complex
+ctypedef double complex _proto_spherical_yn_complex_t(long, double complex) nogil
+cdef _proto_spherical_yn_complex_t *_proto_spherical_yn_complex_t_var = &_func_spherical_yn_complex
+from _spherical_bessel cimport spherical_yn_d_real as _func_spherical_yn_d_real
+ctypedef double _proto_spherical_yn_d_real_t(long, double) nogil
+cdef _proto_spherical_yn_d_real_t *_proto_spherical_yn_d_real_t_var = &_func_spherical_yn_d_real
+from _spherical_bessel cimport spherical_yn_d_complex as _func_spherical_yn_d_complex
+ctypedef double complex _proto_spherical_yn_d_complex_t(long, double complex) nogil
+cdef _proto_spherical_yn_d_complex_t *_proto_spherical_yn_d_complex_t_var = &_func_spherical_yn_d_complex
 cdef extern from "_ufuncs_defs.h":
     cdef double _func_struve_asymp_large_z "struve_asymp_large_z"(double, double, int, double *) nogil
 cdef extern from "_ufuncs_defs.h":
@@ -1479,6 +1543,9 @@ cdef extern from "_ufuncs_defs.h":
     cdef long double _func_expitl "expitl"(long double) nogil
 cdef extern from "_ufuncs_defs.h":
     cdef double _func_expm1 "expm1"(double) nogil
+from _cunity cimport cexpm1 as _func_cexpm1
+ctypedef double complex _proto_cexpm1_t(double complex) nogil
+cdef _proto_cexpm1_t *_proto_cexpm1_t_var = &_func_cexpm1
 cdef extern from "_ufuncs_defs.h":
     cdef double _func_expn "expn"(int, double) nogil
 from _legacy cimport expn_unsafe as _func_expn_unsafe
@@ -1538,6 +1605,12 @@ cdef extern from "_ufuncs_defs.h":
 from _convex_analysis cimport huber as _func_huber
 ctypedef double _proto_huber_t(double, double) nogil
 cdef _proto_huber_t *_proto_huber_t_var = &_func_huber
+from _hyp0f1 cimport _hyp0f1_real as _func__hyp0f1_real
+ctypedef double _proto__hyp0f1_real_t(double, double) nogil
+cdef _proto__hyp0f1_real_t *_proto__hyp0f1_real_t_var = &_func__hyp0f1_real
+from _hyp0f1 cimport _hyp0f1_cmplx as _func__hyp0f1_cmplx
+ctypedef double complex _proto__hyp0f1_cmplx_t(double, double complex) nogil
+cdef _proto__hyp0f1_cmplx_t *_proto__hyp0f1_cmplx_t_var = &_func__hyp0f1_cmplx
 cdef extern from "_ufuncs_defs.h":
     cdef double _func_hyp1f1_wrap "hyp1f1_wrap"(double, double, double) nogil
 cdef extern from "_ufuncs_defs.h":
@@ -1647,6 +1720,9 @@ cdef extern from "_ufuncs_defs.h":
     cdef double complex _func_cbesk_wrap_e "cbesk_wrap_e"(double, double complex) nogil
 cdef extern from "_ufuncs_defs.h":
     cdef double _func_log1p "log1p"(double) nogil
+from _cunity cimport clog1p as _func_clog1p
+ctypedef double complex _proto_clog1p_t(double complex) nogil
+cdef _proto_clog1p_t *_proto_clog1p_t_var = &_func_clog1p
 cdef extern from "_ufuncs_defs.h":
     cdef double _func_log_ndtr "log_ndtr"(double) nogil
 cdef extern from "_ufuncs_defs.h":
@@ -1832,8 +1908,11 @@ cdef extern from "_ufuncs_defs.h":
 cdef extern from "_ufuncs_defs.h":
     cdef double _func_tukeylambdacdf "tukeylambdacdf"(double, double) nogil
 from _xlogy cimport xlog1py as _func_xlog1py
-ctypedef double _proto_xlog1py_t(double, double) nogil
-cdef _proto_xlog1py_t *_proto_xlog1py_t_var = &_func_xlog1py
+ctypedef double _proto_xlog1py_double__t(double, double) nogil
+cdef _proto_xlog1py_double__t *_proto_xlog1py_double__t_var = &_func_xlog1py[double]
+from _xlogy cimport xlog1py as _func_xlog1py
+ctypedef double complex _proto_xlog1py_double_complex__t(double complex, double complex) nogil
+cdef _proto_xlog1py_double_complex__t *_proto_xlog1py_double_complex__t_var = &_func_xlog1py[double_complex]
 from _xlogy cimport xlogy as _func_xlogy
 ctypedef double _proto_xlogy_double__t(double, double) nogil
 cdef _proto_xlogy_double__t *_proto_xlogy_double__t_var = &_func_xlogy[double]
@@ -1920,6 +1999,182 @@ ufunc__lambertw_ptr[2*0] = <void*>_func_lambertw_scalar
 ufunc__lambertw_ptr[2*0+1] = <void*>(<char*>"_lambertw")
 ufunc__lambertw_data[0] = &ufunc__lambertw_ptr[2*0]
 _lambertw = np.PyUFunc_FromFuncAndData(ufunc__lambertw_loops, ufunc__lambertw_data, ufunc__lambertw_types, 1, 3, 1, 0, "_lambertw", ufunc__lambertw_doc, 0)
+
+cdef np.PyUFuncGenericFunction ufunc__spherical_in_loops[2]
+cdef void *ufunc__spherical_in_ptr[4]
+cdef void *ufunc__spherical_in_data[2]
+cdef char ufunc__spherical_in_types[6]
+cdef char *ufunc__spherical_in_doc = (
+    "Internal function, use `spherical_in` instead.")
+ufunc__spherical_in_loops[0] = <np.PyUFuncGenericFunction>loop_d_ld__As_ld_d
+ufunc__spherical_in_loops[1] = <np.PyUFuncGenericFunction>loop_D_lD__As_lD_D
+ufunc__spherical_in_types[0] = <char>NPY_LONG
+ufunc__spherical_in_types[1] = <char>NPY_DOUBLE
+ufunc__spherical_in_types[2] = <char>NPY_DOUBLE
+ufunc__spherical_in_types[3] = <char>NPY_LONG
+ufunc__spherical_in_types[4] = <char>NPY_CDOUBLE
+ufunc__spherical_in_types[5] = <char>NPY_CDOUBLE
+ufunc__spherical_in_ptr[2*0] = <void*>_func_spherical_in_real
+ufunc__spherical_in_ptr[2*0+1] = <void*>(<char*>"_spherical_in")
+ufunc__spherical_in_ptr[2*1] = <void*>_func_spherical_in_complex
+ufunc__spherical_in_ptr[2*1+1] = <void*>(<char*>"_spherical_in")
+ufunc__spherical_in_data[0] = &ufunc__spherical_in_ptr[2*0]
+ufunc__spherical_in_data[1] = &ufunc__spherical_in_ptr[2*1]
+_spherical_in = np.PyUFunc_FromFuncAndData(ufunc__spherical_in_loops, ufunc__spherical_in_data, ufunc__spherical_in_types, 2, 2, 1, 0, "_spherical_in", ufunc__spherical_in_doc, 0)
+
+cdef np.PyUFuncGenericFunction ufunc__spherical_in_d_loops[2]
+cdef void *ufunc__spherical_in_d_ptr[4]
+cdef void *ufunc__spherical_in_d_data[2]
+cdef char ufunc__spherical_in_d_types[6]
+cdef char *ufunc__spherical_in_d_doc = (
+    "Internal function, use `spherical_in` instead.")
+ufunc__spherical_in_d_loops[0] = <np.PyUFuncGenericFunction>loop_d_ld__As_ld_d
+ufunc__spherical_in_d_loops[1] = <np.PyUFuncGenericFunction>loop_D_lD__As_lD_D
+ufunc__spherical_in_d_types[0] = <char>NPY_LONG
+ufunc__spherical_in_d_types[1] = <char>NPY_DOUBLE
+ufunc__spherical_in_d_types[2] = <char>NPY_DOUBLE
+ufunc__spherical_in_d_types[3] = <char>NPY_LONG
+ufunc__spherical_in_d_types[4] = <char>NPY_CDOUBLE
+ufunc__spherical_in_d_types[5] = <char>NPY_CDOUBLE
+ufunc__spherical_in_d_ptr[2*0] = <void*>_func_spherical_in_d_real
+ufunc__spherical_in_d_ptr[2*0+1] = <void*>(<char*>"_spherical_in_d")
+ufunc__spherical_in_d_ptr[2*1] = <void*>_func_spherical_in_d_complex
+ufunc__spherical_in_d_ptr[2*1+1] = <void*>(<char*>"_spherical_in_d")
+ufunc__spherical_in_d_data[0] = &ufunc__spherical_in_d_ptr[2*0]
+ufunc__spherical_in_d_data[1] = &ufunc__spherical_in_d_ptr[2*1]
+_spherical_in_d = np.PyUFunc_FromFuncAndData(ufunc__spherical_in_d_loops, ufunc__spherical_in_d_data, ufunc__spherical_in_d_types, 2, 2, 1, 0, "_spherical_in_d", ufunc__spherical_in_d_doc, 0)
+
+cdef np.PyUFuncGenericFunction ufunc__spherical_jn_loops[2]
+cdef void *ufunc__spherical_jn_ptr[4]
+cdef void *ufunc__spherical_jn_data[2]
+cdef char ufunc__spherical_jn_types[6]
+cdef char *ufunc__spherical_jn_doc = (
+    "Internal function, use `spherical_jn` instead.")
+ufunc__spherical_jn_loops[0] = <np.PyUFuncGenericFunction>loop_d_ld__As_ld_d
+ufunc__spherical_jn_loops[1] = <np.PyUFuncGenericFunction>loop_D_lD__As_lD_D
+ufunc__spherical_jn_types[0] = <char>NPY_LONG
+ufunc__spherical_jn_types[1] = <char>NPY_DOUBLE
+ufunc__spherical_jn_types[2] = <char>NPY_DOUBLE
+ufunc__spherical_jn_types[3] = <char>NPY_LONG
+ufunc__spherical_jn_types[4] = <char>NPY_CDOUBLE
+ufunc__spherical_jn_types[5] = <char>NPY_CDOUBLE
+ufunc__spherical_jn_ptr[2*0] = <void*>_func_spherical_jn_real
+ufunc__spherical_jn_ptr[2*0+1] = <void*>(<char*>"_spherical_jn")
+ufunc__spherical_jn_ptr[2*1] = <void*>_func_spherical_jn_complex
+ufunc__spherical_jn_ptr[2*1+1] = <void*>(<char*>"_spherical_jn")
+ufunc__spherical_jn_data[0] = &ufunc__spherical_jn_ptr[2*0]
+ufunc__spherical_jn_data[1] = &ufunc__spherical_jn_ptr[2*1]
+_spherical_jn = np.PyUFunc_FromFuncAndData(ufunc__spherical_jn_loops, ufunc__spherical_jn_data, ufunc__spherical_jn_types, 2, 2, 1, 0, "_spherical_jn", ufunc__spherical_jn_doc, 0)
+
+cdef np.PyUFuncGenericFunction ufunc__spherical_jn_d_loops[2]
+cdef void *ufunc__spherical_jn_d_ptr[4]
+cdef void *ufunc__spherical_jn_d_data[2]
+cdef char ufunc__spherical_jn_d_types[6]
+cdef char *ufunc__spherical_jn_d_doc = (
+    "Internal function, use `spherical_jn` instead.")
+ufunc__spherical_jn_d_loops[0] = <np.PyUFuncGenericFunction>loop_d_ld__As_ld_d
+ufunc__spherical_jn_d_loops[1] = <np.PyUFuncGenericFunction>loop_D_lD__As_lD_D
+ufunc__spherical_jn_d_types[0] = <char>NPY_LONG
+ufunc__spherical_jn_d_types[1] = <char>NPY_DOUBLE
+ufunc__spherical_jn_d_types[2] = <char>NPY_DOUBLE
+ufunc__spherical_jn_d_types[3] = <char>NPY_LONG
+ufunc__spherical_jn_d_types[4] = <char>NPY_CDOUBLE
+ufunc__spherical_jn_d_types[5] = <char>NPY_CDOUBLE
+ufunc__spherical_jn_d_ptr[2*0] = <void*>_func_spherical_jn_d_real
+ufunc__spherical_jn_d_ptr[2*0+1] = <void*>(<char*>"_spherical_jn_d")
+ufunc__spherical_jn_d_ptr[2*1] = <void*>_func_spherical_jn_d_complex
+ufunc__spherical_jn_d_ptr[2*1+1] = <void*>(<char*>"_spherical_jn_d")
+ufunc__spherical_jn_d_data[0] = &ufunc__spherical_jn_d_ptr[2*0]
+ufunc__spherical_jn_d_data[1] = &ufunc__spherical_jn_d_ptr[2*1]
+_spherical_jn_d = np.PyUFunc_FromFuncAndData(ufunc__spherical_jn_d_loops, ufunc__spherical_jn_d_data, ufunc__spherical_jn_d_types, 2, 2, 1, 0, "_spherical_jn_d", ufunc__spherical_jn_d_doc, 0)
+
+cdef np.PyUFuncGenericFunction ufunc__spherical_kn_loops[2]
+cdef void *ufunc__spherical_kn_ptr[4]
+cdef void *ufunc__spherical_kn_data[2]
+cdef char ufunc__spherical_kn_types[6]
+cdef char *ufunc__spherical_kn_doc = (
+    "Internal function, use `spherical_kn` instead.")
+ufunc__spherical_kn_loops[0] = <np.PyUFuncGenericFunction>loop_d_ld__As_ld_d
+ufunc__spherical_kn_loops[1] = <np.PyUFuncGenericFunction>loop_D_lD__As_lD_D
+ufunc__spherical_kn_types[0] = <char>NPY_LONG
+ufunc__spherical_kn_types[1] = <char>NPY_DOUBLE
+ufunc__spherical_kn_types[2] = <char>NPY_DOUBLE
+ufunc__spherical_kn_types[3] = <char>NPY_LONG
+ufunc__spherical_kn_types[4] = <char>NPY_CDOUBLE
+ufunc__spherical_kn_types[5] = <char>NPY_CDOUBLE
+ufunc__spherical_kn_ptr[2*0] = <void*>_func_spherical_kn_real
+ufunc__spherical_kn_ptr[2*0+1] = <void*>(<char*>"_spherical_kn")
+ufunc__spherical_kn_ptr[2*1] = <void*>_func_spherical_kn_complex
+ufunc__spherical_kn_ptr[2*1+1] = <void*>(<char*>"_spherical_kn")
+ufunc__spherical_kn_data[0] = &ufunc__spherical_kn_ptr[2*0]
+ufunc__spherical_kn_data[1] = &ufunc__spherical_kn_ptr[2*1]
+_spherical_kn = np.PyUFunc_FromFuncAndData(ufunc__spherical_kn_loops, ufunc__spherical_kn_data, ufunc__spherical_kn_types, 2, 2, 1, 0, "_spherical_kn", ufunc__spherical_kn_doc, 0)
+
+cdef np.PyUFuncGenericFunction ufunc__spherical_kn_d_loops[2]
+cdef void *ufunc__spherical_kn_d_ptr[4]
+cdef void *ufunc__spherical_kn_d_data[2]
+cdef char ufunc__spherical_kn_d_types[6]
+cdef char *ufunc__spherical_kn_d_doc = (
+    "Internal function, use `spherical_kn` instead.")
+ufunc__spherical_kn_d_loops[0] = <np.PyUFuncGenericFunction>loop_d_ld__As_ld_d
+ufunc__spherical_kn_d_loops[1] = <np.PyUFuncGenericFunction>loop_D_lD__As_lD_D
+ufunc__spherical_kn_d_types[0] = <char>NPY_LONG
+ufunc__spherical_kn_d_types[1] = <char>NPY_DOUBLE
+ufunc__spherical_kn_d_types[2] = <char>NPY_DOUBLE
+ufunc__spherical_kn_d_types[3] = <char>NPY_LONG
+ufunc__spherical_kn_d_types[4] = <char>NPY_CDOUBLE
+ufunc__spherical_kn_d_types[5] = <char>NPY_CDOUBLE
+ufunc__spherical_kn_d_ptr[2*0] = <void*>_func_spherical_kn_d_real
+ufunc__spherical_kn_d_ptr[2*0+1] = <void*>(<char*>"_spherical_kn_d")
+ufunc__spherical_kn_d_ptr[2*1] = <void*>_func_spherical_kn_d_complex
+ufunc__spherical_kn_d_ptr[2*1+1] = <void*>(<char*>"_spherical_kn_d")
+ufunc__spherical_kn_d_data[0] = &ufunc__spherical_kn_d_ptr[2*0]
+ufunc__spherical_kn_d_data[1] = &ufunc__spherical_kn_d_ptr[2*1]
+_spherical_kn_d = np.PyUFunc_FromFuncAndData(ufunc__spherical_kn_d_loops, ufunc__spherical_kn_d_data, ufunc__spherical_kn_d_types, 2, 2, 1, 0, "_spherical_kn_d", ufunc__spherical_kn_d_doc, 0)
+
+cdef np.PyUFuncGenericFunction ufunc__spherical_yn_loops[2]
+cdef void *ufunc__spherical_yn_ptr[4]
+cdef void *ufunc__spherical_yn_data[2]
+cdef char ufunc__spherical_yn_types[6]
+cdef char *ufunc__spherical_yn_doc = (
+    "Internal function, use `spherical_yn` instead.")
+ufunc__spherical_yn_loops[0] = <np.PyUFuncGenericFunction>loop_d_ld__As_ld_d
+ufunc__spherical_yn_loops[1] = <np.PyUFuncGenericFunction>loop_D_lD__As_lD_D
+ufunc__spherical_yn_types[0] = <char>NPY_LONG
+ufunc__spherical_yn_types[1] = <char>NPY_DOUBLE
+ufunc__spherical_yn_types[2] = <char>NPY_DOUBLE
+ufunc__spherical_yn_types[3] = <char>NPY_LONG
+ufunc__spherical_yn_types[4] = <char>NPY_CDOUBLE
+ufunc__spherical_yn_types[5] = <char>NPY_CDOUBLE
+ufunc__spherical_yn_ptr[2*0] = <void*>_func_spherical_yn_real
+ufunc__spherical_yn_ptr[2*0+1] = <void*>(<char*>"_spherical_yn")
+ufunc__spherical_yn_ptr[2*1] = <void*>_func_spherical_yn_complex
+ufunc__spherical_yn_ptr[2*1+1] = <void*>(<char*>"_spherical_yn")
+ufunc__spherical_yn_data[0] = &ufunc__spherical_yn_ptr[2*0]
+ufunc__spherical_yn_data[1] = &ufunc__spherical_yn_ptr[2*1]
+_spherical_yn = np.PyUFunc_FromFuncAndData(ufunc__spherical_yn_loops, ufunc__spherical_yn_data, ufunc__spherical_yn_types, 2, 2, 1, 0, "_spherical_yn", ufunc__spherical_yn_doc, 0)
+
+cdef np.PyUFuncGenericFunction ufunc__spherical_yn_d_loops[2]
+cdef void *ufunc__spherical_yn_d_ptr[4]
+cdef void *ufunc__spherical_yn_d_data[2]
+cdef char ufunc__spherical_yn_d_types[6]
+cdef char *ufunc__spherical_yn_d_doc = (
+    "Internal function, use `spherical_yn` instead.")
+ufunc__spherical_yn_d_loops[0] = <np.PyUFuncGenericFunction>loop_d_ld__As_ld_d
+ufunc__spherical_yn_d_loops[1] = <np.PyUFuncGenericFunction>loop_D_lD__As_lD_D
+ufunc__spherical_yn_d_types[0] = <char>NPY_LONG
+ufunc__spherical_yn_d_types[1] = <char>NPY_DOUBLE
+ufunc__spherical_yn_d_types[2] = <char>NPY_DOUBLE
+ufunc__spherical_yn_d_types[3] = <char>NPY_LONG
+ufunc__spherical_yn_d_types[4] = <char>NPY_CDOUBLE
+ufunc__spherical_yn_d_types[5] = <char>NPY_CDOUBLE
+ufunc__spherical_yn_d_ptr[2*0] = <void*>_func_spherical_yn_d_real
+ufunc__spherical_yn_d_ptr[2*0+1] = <void*>(<char*>"_spherical_yn_d")
+ufunc__spherical_yn_d_ptr[2*1] = <void*>_func_spherical_yn_d_complex
+ufunc__spherical_yn_d_ptr[2*1+1] = <void*>(<char*>"_spherical_yn_d")
+ufunc__spherical_yn_d_data[0] = &ufunc__spherical_yn_d_ptr[2*0]
+ufunc__spherical_yn_d_data[1] = &ufunc__spherical_yn_d_ptr[2*1]
+_spherical_yn_d = np.PyUFunc_FromFuncAndData(ufunc__spherical_yn_d_loops, ufunc__spherical_yn_d_data, ufunc__spherical_yn_d_types, 2, 2, 1, 0, "_spherical_yn_d", ufunc__spherical_yn_d_doc, 0)
 
 cdef np.PyUFuncGenericFunction ufunc__struve_asymp_large_z_loops[1]
 cdef void *ufunc__struve_asymp_large_z_ptr[2]
@@ -4961,27 +5216,39 @@ ufunc_expit_data[1] = &ufunc_expit_ptr[2*1]
 ufunc_expit_data[2] = &ufunc_expit_ptr[2*2]
 expit = np.PyUFunc_FromFuncAndData(ufunc_expit_loops, ufunc_expit_data, ufunc_expit_types, 3, 1, 1, 0, "expit", ufunc_expit_doc, 0)
 
-cdef np.PyUFuncGenericFunction ufunc_expm1_loops[2]
-cdef void *ufunc_expm1_ptr[4]
-cdef void *ufunc_expm1_data[2]
-cdef char ufunc_expm1_types[4]
+cdef np.PyUFuncGenericFunction ufunc_expm1_loops[4]
+cdef void *ufunc_expm1_ptr[8]
+cdef void *ufunc_expm1_data[4]
+cdef char ufunc_expm1_types[8]
 cdef char *ufunc_expm1_doc = (
     "expm1(x)\n"
     "\n"
     "exp(x) - 1 for use when `x` is near zero.")
 ufunc_expm1_loops[0] = <np.PyUFuncGenericFunction>loop_d_d__As_f_f
 ufunc_expm1_loops[1] = <np.PyUFuncGenericFunction>loop_d_d__As_d_d
+ufunc_expm1_loops[2] = <np.PyUFuncGenericFunction>loop_D_D__As_F_F
+ufunc_expm1_loops[3] = <np.PyUFuncGenericFunction>loop_D_D__As_D_D
 ufunc_expm1_types[0] = <char>NPY_FLOAT
 ufunc_expm1_types[1] = <char>NPY_FLOAT
 ufunc_expm1_types[2] = <char>NPY_DOUBLE
 ufunc_expm1_types[3] = <char>NPY_DOUBLE
+ufunc_expm1_types[4] = <char>NPY_CFLOAT
+ufunc_expm1_types[5] = <char>NPY_CFLOAT
+ufunc_expm1_types[6] = <char>NPY_CDOUBLE
+ufunc_expm1_types[7] = <char>NPY_CDOUBLE
 ufunc_expm1_ptr[2*0] = <void*>_func_expm1
 ufunc_expm1_ptr[2*0+1] = <void*>(<char*>"expm1")
 ufunc_expm1_ptr[2*1] = <void*>_func_expm1
 ufunc_expm1_ptr[2*1+1] = <void*>(<char*>"expm1")
+ufunc_expm1_ptr[2*2] = <void*>_func_cexpm1
+ufunc_expm1_ptr[2*2+1] = <void*>(<char*>"expm1")
+ufunc_expm1_ptr[2*3] = <void*>_func_cexpm1
+ufunc_expm1_ptr[2*3+1] = <void*>(<char*>"expm1")
 ufunc_expm1_data[0] = &ufunc_expm1_ptr[2*0]
 ufunc_expm1_data[1] = &ufunc_expm1_ptr[2*1]
-expm1 = np.PyUFunc_FromFuncAndData(ufunc_expm1_loops, ufunc_expm1_data, ufunc_expm1_types, 2, 1, 1, 0, "expm1", ufunc_expm1_doc, 0)
+ufunc_expm1_data[2] = &ufunc_expm1_ptr[2*2]
+ufunc_expm1_data[3] = &ufunc_expm1_ptr[2*3]
+expm1 = np.PyUFunc_FromFuncAndData(ufunc_expm1_loops, ufunc_expm1_data, ufunc_expm1_types, 4, 1, 1, 0, "expm1", ufunc_expm1_doc, 0)
 
 cdef np.PyUFuncGenericFunction ufunc_expn_loops[3]
 cdef void *ufunc_expn_ptr[6]
@@ -6251,6 +6518,63 @@ ufunc_huber_ptr[2*1+1] = <void*>(<char*>"huber")
 ufunc_huber_data[0] = &ufunc_huber_ptr[2*0]
 ufunc_huber_data[1] = &ufunc_huber_ptr[2*1]
 huber = np.PyUFunc_FromFuncAndData(ufunc_huber_loops, ufunc_huber_data, ufunc_huber_types, 2, 2, 1, 0, "huber", ufunc_huber_doc, 0)
+
+cdef np.PyUFuncGenericFunction ufunc_hyp0f1_loops[4]
+cdef void *ufunc_hyp0f1_ptr[8]
+cdef void *ufunc_hyp0f1_data[4]
+cdef char ufunc_hyp0f1_types[12]
+cdef char *ufunc_hyp0f1_doc = (
+    "hyp0f1(v, x)\n"
+    "\n"
+    "Confluent hypergeometric limit function 0F1.\n"
+    "\n"
+    "Parameters\n"
+    "----------\n"
+    "v, z : array_like\n"
+    "    Input values.\n"
+    "\n"
+    "Returns\n"
+    "-------\n"
+    "hyp0f1 : ndarray\n"
+    "    The confluent hypergeometric limit function.\n"
+    "\n"
+    "Notes\n"
+    "-----\n"
+    "This function is defined as:\n"
+    "\n"
+    ".. math:: _0F_1(v, z) = \\sum_{k=0}^{\\infty}\\frac{z^k}{(v)_k k!}.\n"
+    "\n"
+    "It's also the limit as :math:`q \\to \\infty` of :math:`_1F_1(q; v; z/q)`,\n"
+    "and satisfies the differential equation :math:`f''(z) + vf'(z) = f(z)`.")
+ufunc_hyp0f1_loops[0] = <np.PyUFuncGenericFunction>loop_d_dd__As_ff_f
+ufunc_hyp0f1_loops[1] = <np.PyUFuncGenericFunction>loop_D_dD__As_fF_F
+ufunc_hyp0f1_loops[2] = <np.PyUFuncGenericFunction>loop_d_dd__As_dd_d
+ufunc_hyp0f1_loops[3] = <np.PyUFuncGenericFunction>loop_D_dD__As_dD_D
+ufunc_hyp0f1_types[0] = <char>NPY_FLOAT
+ufunc_hyp0f1_types[1] = <char>NPY_FLOAT
+ufunc_hyp0f1_types[2] = <char>NPY_FLOAT
+ufunc_hyp0f1_types[3] = <char>NPY_FLOAT
+ufunc_hyp0f1_types[4] = <char>NPY_CFLOAT
+ufunc_hyp0f1_types[5] = <char>NPY_CFLOAT
+ufunc_hyp0f1_types[6] = <char>NPY_DOUBLE
+ufunc_hyp0f1_types[7] = <char>NPY_DOUBLE
+ufunc_hyp0f1_types[8] = <char>NPY_DOUBLE
+ufunc_hyp0f1_types[9] = <char>NPY_DOUBLE
+ufunc_hyp0f1_types[10] = <char>NPY_CDOUBLE
+ufunc_hyp0f1_types[11] = <char>NPY_CDOUBLE
+ufunc_hyp0f1_ptr[2*0] = <void*>_func__hyp0f1_real
+ufunc_hyp0f1_ptr[2*0+1] = <void*>(<char*>"hyp0f1")
+ufunc_hyp0f1_ptr[2*1] = <void*>_func__hyp0f1_cmplx
+ufunc_hyp0f1_ptr[2*1+1] = <void*>(<char*>"hyp0f1")
+ufunc_hyp0f1_ptr[2*2] = <void*>_func__hyp0f1_real
+ufunc_hyp0f1_ptr[2*2+1] = <void*>(<char*>"hyp0f1")
+ufunc_hyp0f1_ptr[2*3] = <void*>_func__hyp0f1_cmplx
+ufunc_hyp0f1_ptr[2*3+1] = <void*>(<char*>"hyp0f1")
+ufunc_hyp0f1_data[0] = &ufunc_hyp0f1_ptr[2*0]
+ufunc_hyp0f1_data[1] = &ufunc_hyp0f1_ptr[2*1]
+ufunc_hyp0f1_data[2] = &ufunc_hyp0f1_ptr[2*2]
+ufunc_hyp0f1_data[3] = &ufunc_hyp0f1_ptr[2*3]
+hyp0f1 = np.PyUFunc_FromFuncAndData(ufunc_hyp0f1_loops, ufunc_hyp0f1_data, ufunc_hyp0f1_types, 4, 2, 1, 0, "hyp0f1", ufunc_hyp0f1_doc, 0)
 
 cdef np.PyUFuncGenericFunction ufunc_hyp1f1_loops[4]
 cdef void *ufunc_hyp1f1_ptr[8]
@@ -8290,27 +8614,39 @@ ufunc_kve_data[2] = &ufunc_kve_ptr[2*2]
 ufunc_kve_data[3] = &ufunc_kve_ptr[2*3]
 kve = np.PyUFunc_FromFuncAndData(ufunc_kve_loops, ufunc_kve_data, ufunc_kve_types, 4, 2, 1, 0, "kve", ufunc_kve_doc, 0)
 
-cdef np.PyUFuncGenericFunction ufunc_log1p_loops[2]
-cdef void *ufunc_log1p_ptr[4]
-cdef void *ufunc_log1p_data[2]
-cdef char ufunc_log1p_types[4]
+cdef np.PyUFuncGenericFunction ufunc_log1p_loops[4]
+cdef void *ufunc_log1p_ptr[8]
+cdef void *ufunc_log1p_data[4]
+cdef char ufunc_log1p_types[8]
 cdef char *ufunc_log1p_doc = (
     "log1p(x)\n"
     "\n"
     "Calculates log(1+x) for use when `x` is near zero")
 ufunc_log1p_loops[0] = <np.PyUFuncGenericFunction>loop_d_d__As_f_f
 ufunc_log1p_loops[1] = <np.PyUFuncGenericFunction>loop_d_d__As_d_d
+ufunc_log1p_loops[2] = <np.PyUFuncGenericFunction>loop_D_D__As_F_F
+ufunc_log1p_loops[3] = <np.PyUFuncGenericFunction>loop_D_D__As_D_D
 ufunc_log1p_types[0] = <char>NPY_FLOAT
 ufunc_log1p_types[1] = <char>NPY_FLOAT
 ufunc_log1p_types[2] = <char>NPY_DOUBLE
 ufunc_log1p_types[3] = <char>NPY_DOUBLE
+ufunc_log1p_types[4] = <char>NPY_CFLOAT
+ufunc_log1p_types[5] = <char>NPY_CFLOAT
+ufunc_log1p_types[6] = <char>NPY_CDOUBLE
+ufunc_log1p_types[7] = <char>NPY_CDOUBLE
 ufunc_log1p_ptr[2*0] = <void*>_func_log1p
 ufunc_log1p_ptr[2*0+1] = <void*>(<char*>"log1p")
 ufunc_log1p_ptr[2*1] = <void*>_func_log1p
 ufunc_log1p_ptr[2*1+1] = <void*>(<char*>"log1p")
+ufunc_log1p_ptr[2*2] = <void*>_func_clog1p
+ufunc_log1p_ptr[2*2+1] = <void*>(<char*>"log1p")
+ufunc_log1p_ptr[2*3] = <void*>_func_clog1p
+ufunc_log1p_ptr[2*3+1] = <void*>(<char*>"log1p")
 ufunc_log1p_data[0] = &ufunc_log1p_ptr[2*0]
 ufunc_log1p_data[1] = &ufunc_log1p_ptr[2*1]
-log1p = np.PyUFunc_FromFuncAndData(ufunc_log1p_loops, ufunc_log1p_data, ufunc_log1p_types, 2, 1, 1, 0, "log1p", ufunc_log1p_doc, 0)
+ufunc_log1p_data[2] = &ufunc_log1p_ptr[2*2]
+ufunc_log1p_data[3] = &ufunc_log1p_ptr[2*3]
+log1p = np.PyUFunc_FromFuncAndData(ufunc_log1p_loops, ufunc_log1p_data, ufunc_log1p_types, 4, 1, 1, 0, "log1p", ufunc_log1p_doc, 0)
 
 cdef np.PyUFuncGenericFunction ufunc_log_ndtr_loops[2]
 cdef void *ufunc_log_ndtr_ptr[4]
@@ -11365,10 +11701,10 @@ ufunc_wofz_data[0] = &ufunc_wofz_ptr[2*0]
 ufunc_wofz_data[1] = &ufunc_wofz_ptr[2*1]
 wofz = np.PyUFunc_FromFuncAndData(ufunc_wofz_loops, ufunc_wofz_data, ufunc_wofz_types, 2, 1, 1, 0, "wofz", ufunc_wofz_doc, 0)
 
-cdef np.PyUFuncGenericFunction ufunc_xlog1py_loops[2]
-cdef void *ufunc_xlog1py_ptr[4]
-cdef void *ufunc_xlog1py_data[2]
-cdef char ufunc_xlog1py_types[6]
+cdef np.PyUFuncGenericFunction ufunc_xlog1py_loops[4]
+cdef void *ufunc_xlog1py_ptr[8]
+cdef void *ufunc_xlog1py_data[4]
+cdef char ufunc_xlog1py_types[12]
 cdef char *ufunc_xlog1py_doc = (
     "xlog1py(x, y)\n"
     "\n"
@@ -11392,19 +11728,33 @@ cdef char *ufunc_xlog1py_doc = (
     ".. versionadded:: 0.13.0")
 ufunc_xlog1py_loops[0] = <np.PyUFuncGenericFunction>loop_d_dd__As_ff_f
 ufunc_xlog1py_loops[1] = <np.PyUFuncGenericFunction>loop_d_dd__As_dd_d
+ufunc_xlog1py_loops[2] = <np.PyUFuncGenericFunction>loop_D_DD__As_FF_F
+ufunc_xlog1py_loops[3] = <np.PyUFuncGenericFunction>loop_D_DD__As_DD_D
 ufunc_xlog1py_types[0] = <char>NPY_FLOAT
 ufunc_xlog1py_types[1] = <char>NPY_FLOAT
 ufunc_xlog1py_types[2] = <char>NPY_FLOAT
 ufunc_xlog1py_types[3] = <char>NPY_DOUBLE
 ufunc_xlog1py_types[4] = <char>NPY_DOUBLE
 ufunc_xlog1py_types[5] = <char>NPY_DOUBLE
-ufunc_xlog1py_ptr[2*0] = <void*>_func_xlog1py
+ufunc_xlog1py_types[6] = <char>NPY_CFLOAT
+ufunc_xlog1py_types[7] = <char>NPY_CFLOAT
+ufunc_xlog1py_types[8] = <char>NPY_CFLOAT
+ufunc_xlog1py_types[9] = <char>NPY_CDOUBLE
+ufunc_xlog1py_types[10] = <char>NPY_CDOUBLE
+ufunc_xlog1py_types[11] = <char>NPY_CDOUBLE
+ufunc_xlog1py_ptr[2*0] = <void*>_func_xlog1py[double]
 ufunc_xlog1py_ptr[2*0+1] = <void*>(<char*>"xlog1py")
-ufunc_xlog1py_ptr[2*1] = <void*>_func_xlog1py
+ufunc_xlog1py_ptr[2*1] = <void*>_func_xlog1py[double]
 ufunc_xlog1py_ptr[2*1+1] = <void*>(<char*>"xlog1py")
+ufunc_xlog1py_ptr[2*2] = <void*>_func_xlog1py[double_complex]
+ufunc_xlog1py_ptr[2*2+1] = <void*>(<char*>"xlog1py")
+ufunc_xlog1py_ptr[2*3] = <void*>_func_xlog1py[double_complex]
+ufunc_xlog1py_ptr[2*3+1] = <void*>(<char*>"xlog1py")
 ufunc_xlog1py_data[0] = &ufunc_xlog1py_ptr[2*0]
 ufunc_xlog1py_data[1] = &ufunc_xlog1py_ptr[2*1]
-xlog1py = np.PyUFunc_FromFuncAndData(ufunc_xlog1py_loops, ufunc_xlog1py_data, ufunc_xlog1py_types, 2, 2, 1, 0, "xlog1py", ufunc_xlog1py_doc, 0)
+ufunc_xlog1py_data[2] = &ufunc_xlog1py_ptr[2*2]
+ufunc_xlog1py_data[3] = &ufunc_xlog1py_ptr[2*3]
+xlog1py = np.PyUFunc_FromFuncAndData(ufunc_xlog1py_loops, ufunc_xlog1py_data, ufunc_xlog1py_types, 4, 2, 1, 0, "xlog1py", ufunc_xlog1py_doc, 0)
 
 cdef np.PyUFuncGenericFunction ufunc_xlogy_loops[4]
 cdef void *ufunc_xlogy_ptr[8]

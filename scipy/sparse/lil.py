@@ -177,14 +177,6 @@ class lil_matrix(spmatrix, IndexMixin):
     # row
 
     def getnnz(self, axis=None):
-        """Get the count of explicitly-stored values (nonzeros)
-
-        Parameters
-        ----------
-        axis : None, 0, or 1
-            Select between the number of values across the whole matrix, in
-            each column, or in each row.
-        """
         if axis is None:
             return sum([len(rowvals) for rowvals in self.data])
         if axis < 0:
@@ -198,7 +190,12 @@ class lil_matrix(spmatrix, IndexMixin):
             return np.array([len(rowvals) for rowvals in self.data], dtype=np.intp)
         else:
             raise ValueError('axis out of bounds')
-    nnz = property(fget=getnnz)
+
+    def count_nonzero(self):
+        return sum(np.count_nonzero(rowvals) for rowvals in self.data)
+
+    getnnz.__doc__ = spmatrix.getnnz.__doc__
+    count_nonzero.__doc__ = spmatrix.count_nonzero.__doc__
 
     def __str__(self):
         val = ''
@@ -410,6 +407,8 @@ class lil_matrix(spmatrix, IndexMixin):
         new.rows = deepcopy(self.rows)
         return new
 
+    copy.__doc__ = spmatrix.copy.__doc__
+
     def reshape(self,shape):
         new = lil_matrix(shape, dtype=self.dtype)
         j_max = self.shape[1]
@@ -436,11 +435,13 @@ class lil_matrix(spmatrix, IndexMixin):
         else:
             return self
 
+    tolil.__doc__ = spmatrix.tolil.__doc__
+
     def tofastlil(self):
 
         return self.tocsr().tofastlil()
 
-    def tocsr(self):
+    def tocsr(self, copy=False):
         """ Return Compressed Sparse Row format arrays for this matrix.
         """
 
@@ -463,10 +464,12 @@ class lil_matrix(spmatrix, IndexMixin):
         from .csr import csr_matrix
         return csr_matrix((data, indices, indptr), shape=self.shape)
 
-    def tocsc(self):
-        """ Return Compressed Sparse Column format arrays for this matrix.
-        """
-        return self.tocsr().tocsc()
+    tocsr.__doc__ = spmatrix.tocsr.__doc__
+
+    def tocsc(self, copy=False):
+        return self.tocsr(copy=copy).tocsc()
+
+    tocsc.__doc__ = spmatrix.tocsc.__doc__
 
 
 def _prepare_index_for_memoryview(i, j, x=None):

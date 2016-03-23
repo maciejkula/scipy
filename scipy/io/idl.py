@@ -278,7 +278,7 @@ def _read_array(f, typecode, array_desc):
         if typecode == 1:
             nbytes = _read_int32(f)
             if nbytes != array_desc['nbytes']:
-                raise Exception("Error occurred while reading byte array")
+                warnings.warn("Not able to verify number of bytes from header")
 
         # Read bytes as numpy array
         array = np.fromstring(f.read(array_desc['nbytes']),
@@ -674,14 +674,14 @@ class AttrDict(dict):
 def readsav(file_name, idict=None, python_dict=False,
             uncompressed_file_name=None, verbose=False):
     """
-    Read an IDL .sav file
+    Read an IDL .sav file.
 
     Parameters
     ----------
     file_name : str
         Name of the IDL save file.
     idict : dict, optional
-        Dictionary in which to insert .sav file variables
+        Dictionary in which to insert .sav file variables.
     python_dict : bool, optional
         By default, the object return is not a Python dictionary, but a
         case-insensitive dictionary with item, attribute, and call access

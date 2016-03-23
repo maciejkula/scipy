@@ -12,11 +12,12 @@ To run it in its simplest form::
 from __future__ import division, print_function, absolute_import
 
 import warnings
+import itertools
 
 import numpy as np
 from numpy.testing import (assert_raises, assert_allclose, assert_equal,
                            assert_, TestCase, run_module_suite, dec,
-                           assert_almost_equal)
+                           assert_almost_equal, assert_warns)
 
 from scipy._lib._testutils import suppressed_stdout
 from scipy import optimize
@@ -249,6 +250,72 @@ class CheckOptimizeParameterized(CheckOptimize):
                         atol=1e-14, rtol=1e-7)
 
     @suppressed_stdout
+    def test_neldermead_initial_simplex(self):
+        # Nelder-Mead simplex algorithm
+        simplex = np.zeros((4, 3))
+        simplex[...] = self.startparams
+        for j in range(3):
+            simplex[j+1,j] += 0.1
+
+        if self.use_wrapper:
+            opts = {'maxiter': self.maxiter, 'disp': False,
+                    'return_all': True, 'initial_simplex': simplex}
+            res = optimize.minimize(self.func, self.startparams, args=(),
+                                    method='Nelder-mead', options=opts)
+            params, fopt, numiter, func_calls, warnflag = \
+                    res['x'], res['fun'], res['nit'], res['nfev'], \
+                    res['status']
+            assert_allclose(res['allvecs'][0], simplex[0])
+        else:
+            retval = optimize.fmin(self.func, self.startparams,
+                                        args=(), maxiter=self.maxiter,
+                                        full_output=True, disp=False, retall=False,
+                                        initial_simplex=simplex)
+
+            (params, fopt, numiter, func_calls, warnflag) = retval
+
+        assert_allclose(self.func(params), self.func(self.solution),
+                        atol=1e-6)
+
+        # Ensure that function call counts are 'known good'; these are from
+        # Scipy 0.17.0. Don't allow them to increase.
+        assert_(self.funccalls == 100, self.funccalls)
+        assert_(self.gradcalls == 0, self.gradcalls)
+
+        # Ensure that the function behaves the same; this is from Scipy 0.15.0
+        assert_allclose(self.trace[50:52],
+                        [[0.14687474, -0.5103282, 0.48252111],
+                         [0.14474003, -0.5282084, 0.48743951]],
+                        atol=1e-14, rtol=1e-7)
+
+    @suppressed_stdout
+    def test_neldermead_initial_simplex_bad(self):
+        # Check it fails with a bad simplices
+        bad_simplices = []
+
+        simplex = np.zeros((3, 2))
+        simplex[...] = self.startparams[:2]
+        for j in range(2):
+            simplex[j+1,j] += 0.1
+        bad_simplices.append(simplex)
+
+        simplex = np.zeros((3, 3))
+        bad_simplices.append(simplex)
+
+        for simplex in bad_simplices:
+            if self.use_wrapper:
+                opts = {'maxiter': self.maxiter, 'disp': False,
+                        'return_all': False, 'initial_simplex': simplex}
+                assert_raises(ValueError,
+                              optimize.minimize, self.func, self.startparams, args=(),
+                              method='Nelder-mead', options=opts)
+            else:
+                assert_raises(ValueError, optimize.fmin, self.func, self.startparams,
+                              args=(), maxiter=self.maxiter,
+                              full_output=True, disp=False, retall=False,
+                              initial_simplex=simplex)
+
+    @suppressed_stdout
     def test_ncg(self):
         # line-search Newton conjugate gradient optimization routine
         if self.use_wrapper:
@@ -351,6 +418,18 @@ class CheckOptimizeParameterized(CheckOptimize):
                         [[-4.35700753e-07, -5.24869435e-01, 4.87527480e-01],
                          [-4.35700753e-07, -5.24869401e-01, 4.87527774e-01]],
                         atol=1e-6, rtol=1e-7)
+
+
+def test_neldermead_xatol_fatol():
+    # gh4484
+    # test we can call with fatol, xatol specified
+    func = lambda x: x[0]**2 + x[1]**2
+
+    optimize._minimize._minimize_neldermead(func, [1, 1], maxiter=2,
+                                            xatol=1e-3, fatol=1e-3)
+    assert_warns(DeprecationWarning,
+                 optimize._minimize._minimize_neldermead,
+                 func, [1, 1], xtol=1e-3, ftol=1e-3, maxiter=2)
 
 
 class TestOptimizeWrapperDisp(CheckOptimizeParameterized):
@@ -633,11 +712,11 @@ class TestOptimizeSimple(CheckOptimize):
         sol_4 = optimize.minimize(f, x0, constraints=[{'type': 'ineq', 'fun': cons}], bounds=[(1, 10)])
         for sol in [sol_0, sol_1, sol_2, sol_3, sol_4]:
             assert_(sol.success)
-        assert_allclose(sol_0.x, 0, atol=1e-8)
-        assert_allclose(sol_1.x, 2, atol=1e-8)
-        assert_allclose(sol_2.x, 5, atol=1e-8)
-        assert_allclose(sol_3.x, 5, atol=1e-8)
-        assert_allclose(sol_4.x, 2, atol=1e-8)
+        assert_allclose(sol_0.x, 0, atol=1e-7)
+        assert_allclose(sol_1.x, 2, atol=1e-7)
+        assert_allclose(sol_2.x, 5, atol=1e-7)
+        assert_allclose(sol_3.x, 5, atol=1e-7)
+        assert_allclose(sol_4.x, 2, atol=1e-7)
 
     def test_minimize_coerce_args_param(self):
         # Regression test for gh-3503
@@ -650,6 +729,58 @@ class TestOptimizeSimple(CheckOptimize):
         c = np.array([3, 1, 4, 1, 5, 9, 2, 6, 5, 3, 5])
         xinit = np.random.randn(len(c))
         optimize.minimize(Y, xinit, jac=dY_dx, args=(c), method="BFGS")
+
+    def test_initial_step_scaling(self):
+        # Check that optimizer initial step is not huge even if the
+        # function and gradients are
+
+        scales = [1e-50, 1, 1e50]
+        methods = ['CG', 'BFGS', 'L-BFGS-B', 'Newton-CG']
+
+        def f(x):
+            if first_step_size[0] is None and x[0] != x0[0]:
+                first_step_size[0] = abs(x[0] - x0[0])
+            if abs(x).max() > 1e4:
+                raise AssertionError("Optimization stepped far away!")
+            return scale*(x[0] - 1)**2
+
+        def g(x):
+            return np.array([scale*(x[0] - 1)])
+
+        for scale, method in itertools.product(scales, methods):
+            if method in ('CG', 'BFGS'):
+                options = dict(gtol=scale*1e-8)
+            else:
+                options = dict()
+
+            if scale < 1e-10 and method in ('L-BFGS-B', 'Newton-CG'):
+                # XXX: return initial point if they see small gradient
+                continue
+
+            x0 = [-1.0]
+            first_step_size = [None]
+            res = optimize.minimize(f, x0, jac=g, method=method,
+                                    options=options)
+
+            err_msg = "{0} {1}: {2}: {3}".format(method, scale, first_step_size,
+                                                 res)
+
+            assert_(res.success, err_msg)
+            assert_allclose(res.x, [1.0], err_msg=err_msg)
+            assert_(res.nit <= 3, err_msg)
+
+            if scale > 1e-10:
+                if method in ('CG', 'BFGS'):
+                    assert_allclose(first_step_size[0], 1.01, err_msg=err_msg)
+                else:
+                    # Newton-CG and L-BFGS-B use different logic for the first step,
+                    # but are both scaling invariant with step sizes ~ 1
+                    assert_(first_step_size[0] > 0.5 and first_step_size[0] < 3,
+                            err_msg)
+            else:
+                # step size has upper bound of ||grad||, so line
+                # search makes many small steps
+                pass
 
 
 class TestLBFGSBBounds(TestCase):

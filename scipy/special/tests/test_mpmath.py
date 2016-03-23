@@ -54,7 +54,7 @@ def test_expi_complex():
 # ------------------------------------------------------------------------------
 
 
-@mpmath_check('0.00')
+@mpmath_check('0.19')
 def test_hyp0f1_gh5764():
     # Do a small and somewhat systematic test that runs quickly
     pts = []
@@ -63,10 +63,20 @@ def test_hyp0f1_gh5764():
         for x in axis:
             for y in axis:
                 pts.append((v, x + 1J*y))
-    std = np.array([(complex(mpmath.hyp0f1(*p)),) for p in pts])
+    std = np.array([complex(mpmath.hyp0f1(*p)) for p in pts])
     # Can't use FuncData because v should be real and z complex
     res = np.array([sc.hyp0f1(*p) for p in pts])
     assert_allclose(res, std, atol=1e-13, rtol=1e-13)
+
+
+@mpmath_check('0.19')
+def test_hyp0f1_gh_1609():
+    # this is a regression test for gh-1609
+    vv = np.linspace(150, 180, 21)
+    af = sc.hyp0f1(vv, 0.5)
+    mf = np.array([mpmath.hyp0f1(v, 0.5) for v in vv])
+    assert_allclose(af, mf.astype(float), rtol=1e-12)
+
 
 # ------------------------------------------------------------------------------
 # hyp2f1
@@ -956,6 +966,16 @@ class TestSystematic(with_metaclass(_SystematicMeta, object)):
         assert_(np.isinf(sc.exprel(np.inf)))
         assert_(sc.exprel(-np.inf) == 0)
 
+    def test_expm1_complex(self):
+        assert_mpmath_equal(sc.expm1,
+                            mpmath.expm1,
+                            [ComplexArg()])
+
+    def test_log1p_complex(self):
+        assert_mpmath_equal(sc.log1p,
+                            lambda x: mpmath.log(x+1),
+                            [ComplexArg()], dps=60)
+
     def test_e1_complex(self):
         # E_1 oscillates as Im[z] -> +- inf, so limit range
         assert_mpmath_equal(sc.exp1,
@@ -1211,17 +1231,25 @@ class TestSystematic(with_metaclass(_SystematicMeta, object)):
 
     # hurwitz: same as zeta
 
-    @nonfunctional_tooslow
     def test_hyp0f1(self):
+        # mpmath reports no convergence unless maxterms is large enough
+        KW = dict(maxprec=400, maxterms=1500)
         assert_mpmath_equal(sc.hyp0f1,
-                            _exception_to_nan(lambda a, x: mpmath.hyp0f1(a, x, **HYPERKW)),
-                            [Arg(), Arg()])
+                            lambda a, x: mpmath.hyp0f1(a, x, **KW),
+                            [Arg(-1e7, 1e7), Arg(0, 1e5)])
+        # NB: The range of the second parameter ("z") is limited from below
+        # because of an overflow in the intermediate calculations. The way
+        # for fix it is to implement an asymptotic expansion for Bessel J
+        # (similar to what is implemented for Bessel I here).
 
-    @nonfunctional_tooslow
     def test_hyp0f1_complex(self):
+        KW = dict(maxprec=400, maxterms=1500)
         assert_mpmath_equal(lambda a, z: sc.hyp0f1(a.real, z),
                             _exception_to_nan(lambda a, x: mpmath.hyp0f1(a, x, **HYPERKW)),
-                            [Arg(), ComplexArg()])
+                            [Arg(-25, 25), ComplexArg(complex(-120, -120), complex(120, 120))])
+        # NB: The range of the first parameter ("v") are limited by an overflow
+        # in the intermediate calculations. Can be fixed by implementing an
+        # asymptotic expansion for Bessel functions for large order.
 
     @knownfailure_overridable()
     def test_hyp1f1(self):
@@ -1649,6 +1677,122 @@ class TestSystematic(with_metaclass(_SystematicMeta, object)):
                             dps=60,
                             rtol=1e-13)
 
+    def test_spherical_jn(self):
+        def mp_spherical_jn(n, z):
+            arg = mpmath.mpmathify(z)
+            out = (mpmath.besselj(n + mpmath.mpf(1)/2, arg) /
+                   mpmath.sqrt(2*arg/mpmath.pi))
+            if arg.imag == 0:
+                return out.real
+            else:
+                return out
+
+        assert_mpmath_equal(lambda n, z: sc.spherical_jn(int(n), z),
+                            _exception_to_nan(mp_spherical_jn),
+                            [IntArg(0, 200), Arg(-1e8, 1e8)],
+                            dps=300)
+
+    def test_spherical_jn_complex(self):
+        def mp_spherical_jn(n, z):
+            arg = mpmath.mpmathify(z)
+            out = (mpmath.besselj(n + mpmath.mpf(1)/2, arg) /
+                   mpmath.sqrt(2*arg/mpmath.pi))
+            if arg.imag == 0:
+                return out.real
+            else:
+                return out
+
+        assert_mpmath_equal(lambda n, z: sc.spherical_jn(int(n.real), z),
+                            _exception_to_nan(mp_spherical_jn),
+                            [IntArg(0, 200), ComplexArg()])
+
+    def test_spherical_yn(self):
+        def mp_spherical_yn(n, z):
+            arg = mpmath.mpmathify(z)
+            out = (mpmath.bessely(n + mpmath.mpf(1)/2, arg) /
+                   mpmath.sqrt(2*arg/mpmath.pi))
+            if arg.imag == 0:
+                return out.real
+            else:
+                return out
+
+        assert_mpmath_equal(lambda n, z: sc.spherical_yn(int(n), z),
+                            _exception_to_nan(mp_spherical_yn),
+                            [IntArg(0, 200), Arg(-1e10, 1e10)],
+                            dps=100)
+
+    def test_spherical_yn_complex(self):
+        def mp_spherical_yn(n, z):
+            arg = mpmath.mpmathify(z)
+            out = (mpmath.bessely(n + mpmath.mpf(1)/2, arg) /
+                   mpmath.sqrt(2*arg/mpmath.pi))
+            if arg.imag == 0:
+                return out.real
+            else:
+                return out
+
+        assert_mpmath_equal(lambda n, z: sc.spherical_yn(int(n.real), z),
+                            _exception_to_nan(mp_spherical_yn),
+                            [IntArg(0, 200), ComplexArg()])
+
+    def test_spherical_in(self):
+        def mp_spherical_in(n, z):
+            arg = mpmath.mpmathify(z)
+            out = (mpmath.besseli(n + mpmath.mpf(1)/2, arg) /
+                   mpmath.sqrt(2*arg/mpmath.pi))
+            if arg.imag == 0:
+                return out.real
+            else:
+                return out
+
+        assert_mpmath_equal(lambda n, z: sc.spherical_in(int(n), z),
+                            _exception_to_nan(mp_spherical_in),
+                            [IntArg(0, 200), Arg()],
+                            dps=200, atol=10**(-278))
+
+    def test_spherical_in_complex(self):
+        def mp_spherical_in(n, z):
+            arg = mpmath.mpmathify(z)
+            out = (mpmath.besseli(n + mpmath.mpf(1)/2, arg) /
+                   mpmath.sqrt(2*arg/mpmath.pi))
+            if arg.imag == 0:
+                return out.real
+            else:
+                return out
+
+        assert_mpmath_equal(lambda n, z: sc.spherical_in(int(n.real), z),
+                            _exception_to_nan(mp_spherical_in),
+                            [IntArg(0, 200), ComplexArg()])
+
+    def test_spherical_kn(self):
+        def mp_spherical_kn(n, z):
+            out = (mpmath.besselk(n + mpmath.mpf(1)/2, z) *
+                   mpmath.sqrt(mpmath.pi/(2*mpmath.mpmathify(z))))
+            if mpmath.mpmathify(z).imag == 0:
+                return out.real
+            else:
+                return out
+
+        assert_mpmath_equal(lambda n, z: sc.spherical_kn(int(n), z),
+                            _exception_to_nan(mp_spherical_kn),
+                            [IntArg(0, 150), Arg()],
+                            dps=100)
+
+    @knownfailure_overridable("Accuracy issues near z = -1 inherited from kv.")
+    def test_spherical_kn_complex(self):
+        def mp_spherical_kn(n, z):
+            arg = mpmath.mpmathify(z)
+            out = (mpmath.besselk(n + mpmath.mpf(1)/2, arg) /
+                   mpmath.sqrt(2*arg/mpmath.pi))
+            if arg.imag == 0:
+                return out.real
+            else:
+                return out
+
+        assert_mpmath_equal(lambda n, z: sc.spherical_kn(int(n.real), z),
+                            _exception_to_nan(mp_spherical_kn),
+                            [IntArg(0, 200), ComplexArg()],
+                            dps=200)
 
 if __name__ == "__main__":
     run_module_suite()

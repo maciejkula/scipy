@@ -904,7 +904,7 @@ interface
 
      ! LWORK is obtained by the query call
      integer intent(in),depend(nrhs,m,n,minmn) :: lwork 
-     check(lwork>=MAX(minmn+3*n+1, 2*minmn*nrhs)) :: lwork
+     check(lwork>=MAX(minmn+3*n+1, 2*minmn+nrhs)) :: lwork
      <ftype2> dimension(lwork),intent(cache,hide),depend(lwork) :: work
      integer intent(out)::info
 
@@ -2897,6 +2897,12 @@ subroutine <prefix2c>rot(n,x,offx,incx,y,offy,incy,c,s)
     check(len(x)-offx>(n-1)*abs(incx)) :: n
     check(len(y)-offy>(n-1)*abs(incy)) :: n
 end subroutine <prefix2c>rot
+
+subroutine ilaver(major, minor, patch)
+    integer intent(out) :: major
+    integer intent(out) :: minor
+    integer intent(out) :: patch
+end subroutine ilaver
  
 end interface
 

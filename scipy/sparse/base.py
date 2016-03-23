@@ -128,47 +128,66 @@ class spmatrix(object):
             yield self[r,:]
 
     def getmaxprint(self):
-        try:
-            maxprint = self.maxprint
-        except AttributeError:
-            maxprint = MAXPRINT
-        return maxprint
+        return self.maxprint
 
-    # def typecode(self):
-    #    try:
-    #        typ = self.dtype.char
-    #    except AttributeError:
-    #        typ = None
-    #    return typ
+    def count_nonzero(self):
+        """Number of non-zero entries, equivalent to
 
-    def getnnz(self):
-        try:
-            return self.nnz
-        except AttributeError:
-            raise AttributeError("nnz not defined")
+        np.count_nonzero(a.toarray())
+
+        Unlike getnnz() and the nnz property, which return the number of stored
+        entries (the length of the data attribute), this method counts the
+        actual number of non-zero entries in data.
+        """
+        raise NotImplementedError("count_nonzero not implemented for %s." %
+                                  self.__class__.__name__)
+
+    def getnnz(self, axis=None):
+        """Number of stored values, including explicit zeros.
+
+        Parameters
+        ----------
+        axis : None, 0, or 1
+            Select between the number of values across the whole matrix, in
+            each column, or in each row.
+
+        See also
+        --------
+        count_nonzero : Number of non-zero entries
+        """
+        raise NotImplementedError("getnnz not implemented for %s." %
+                                  self.__class__.__name__)
+
+    @property
+    def nnz(self):
+        """Number of stored values, including explicit zeros.
+
+        See also
+        --------
+        count_nonzero : Number of non-zero entries
+        """
+        return self.getnnz()
 
     def getformat(self):
         return getattr(self, 'format', 'und')
 
     def __repr__(self):
-        nnz = self.getnnz()
         _, format_name = _formats[self.getformat()]
         return "<%dx%d sparse matrix of type '%s'\n" \
                "\twith %d stored elements in %s format>" % \
-               (self.shape + (self.dtype.type, nnz, format_name))
+               (self.shape + (self.dtype.type, self.nnz, format_name))
 
     def __str__(self):
         maxprint = self.getmaxprint()
 
         A = self.tocoo()
-        nnz = self.getnnz()
 
         # helper function, outputs "(i,j)  v"
         def tostr(row,col,data):
             triples = zip(list(zip(row,col)),data)
             return '\n'.join([('  %s\t%s' % t) for t in triples])
 
-        if nnz > maxprint:
+        if self.nnz > maxprint:
             half = maxprint // 2
             out = tostr(A.row[:half], A.col[:half], A.data[:half])
             out += "\n  :\t:\n"
@@ -181,7 +200,7 @@ class spmatrix(object):
 
     def __bool__(self):  # Simple -- other ideas?
         if self.shape == (1, 1):
-            return True if self.nnz == 1 else False
+            return self.nnz != 0
         else:
             raise ValueError("The truth value of an array with more than one "
                              "element is ambiguous. Use a.any() or a.all().")
@@ -191,9 +210,8 @@ class spmatrix(object):
     # perhaps it should be the number of rows?  But for some uses the number of
     # non-zeros is more important.  For now, raise an exception!
     def __len__(self):
-        # return self.getnnz()
         raise TypeError("sparse matrix length is ambiguous; use getnnz()"
-                         " or shape[0]")
+                        " or shape[0]")
 
     def asformat(self, format):
         """Return this matrix in a given sparse format
@@ -248,7 +266,7 @@ class spmatrix(object):
         """
         return self * other
 
-    def power(self, n, dtype=None):            
+    def power(self, n, dtype=None):
         return self.tocsr().power(n, dtype=dtype)
 
     def __eq__(self, other):
@@ -658,23 +676,75 @@ class spmatrix(object):
         """
         return self.tocoo().toarray(order=order, out=out)
 
-    def todok(self):
-        return self.tocoo().todok()
+    # In principle, providing a tocsr method will be sufficient for any
+    # sparse matrix format deriving from spmatrix.
+    def tocsr(self, copy=False):
+        """Convert this matrix to Compressed Sparse Row format.
 
-    def tocoo(self):
-        return self.tocsr().tocoo()
+        With copy=False, the data/indices may be shared between this matrix and
+        the resultant csr_matrix.
+        """
+        raise NotImplementedError("tocsr is not implemented for %s." %
+                                  self.__class__.__name__)
 
-    def tolil(self):
-        return self.tocsr().tolil()
+    def todok(self, copy=False):
+        """Convert this matrix to Dictionary Of Keys format.
 
-    def todia(self):
-        return self.tocoo().todia()
+        With copy=False, the data/indices may be shared between this matrix and
+        the resultant dok_matrix.
+        """
+        return self.tocoo(copy=False).todok(copy=copy)
 
-    def tobsr(self, blocksize=None):
-        return self.tocsr().tobsr(blocksize=blocksize)
+    def tocoo(self, copy=False):
+        """Convert this matrix to COOrdinate format.
+
+        With copy=False, the data/indices may be shared between this matrix and
+        the resultant coo_matrix.
+        """
+        return self.tocsr(copy=False).tocoo(copy=copy)
+
+    def tolil(self, copy=False):
+        """Convert this matrix to LInked List format.
+
+        With copy=False, the data/indices may be shared between this matrix and
+        the resultant lil_matrix.
+        """
+        return self.tocsr(copy=False).tolil(copy=copy)
+
+    def todia(self, copy=False):
+        """Convert this matrix to sparse DIAgonal format.
+
+        With copy=False, the data/indices may be shared between this matrix and
+        the resultant dia_matrix.
+        """
+        return self.tocoo(copy=False).todia(copy=copy)
+
+    def tobsr(self, blocksize=None, copy=False):
+        """Convert this matrix to Block Sparse Row format.
+
+        With copy=False, the data/indices may be shared between this matrix and
+        the resultant bsr_matrix.
+
+        When blocksize=(R, C) is provided, it will be used for construction of
+        the bsr_matrix.
+        """
+        return self.tocsr(copy=False).tobsr(blocksize=blocksize, copy=copy)
+
+    def tocsc(self, copy=False):
+        """Convert this matrix to Compressed Sparse Column format.
+
+        With copy=False, the data/indices may be shared between this matrix and
+        the resultant csc_matrix.
+        """
+        return self.tocsr(copy=False).tocsc(copy=copy)
 
     def copy(self):
-        return self.__class__(self,copy=True)
+        """Returns a copy of this matrix.
+
+        No data/indices will be shared between the returned value and current
+        matrix.
+        """
+        return self.__class__(self, copy=True)
 
     def sum(self, axis=None):
         """Sum the matrix over the given axis.  If the axis is None, sum
@@ -688,11 +758,10 @@ class spmatrix(object):
         # Mimic numpy's casting.
         if np.issubdtype(self.dtype, np.float_):
             res_dtype = np.float_
-        elif (np.issubdtype(self.dtype, np.int_) or
-              np.issubdtype(self.dtype, np.bool_)):
-                res_dtype = np.int_
-        elif np.issubdtype(self.dtype, np.complex_):
-            res_dtype = np.complex_
+        elif self.dtype.kind in 'ib':
+            res_dtype = np.int_
+        elif self.dtype.kind == 'u':
+            res_dtype = np.uint
         else:
             res_dtype = self.dtype
 
@@ -720,13 +789,13 @@ class spmatrix(object):
                 np.issubdtype(self.dtype, np.integer) or
                 np.issubdtype(self.dtype, np.bool_)):
             res_dtype = np.float_
-        elif np.issubdtype(self.dtype, np.complex_):
-            res_dtype = np.complex_
         else:
             res_dtype = self.dtype
 
         if axis is None:
-            return self.sum(None) * 1.0 / (self.shape[0]*self.shape[1])
+            mean = self.astype(res_dtype).sum()
+            mean /= np.array(self.shape[0] * self.shape[1], dtype=res_dtype)
+            return mean
 
         if axis < 0:
             axis += 2

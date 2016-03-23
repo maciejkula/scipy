@@ -18,7 +18,7 @@ from scipy.special import (
     nbdtrik, pdtrik,
     mathieu_a, mathieu_b, mathieu_cem, mathieu_sem, mathieu_modcem1,
     mathieu_modsem1, mathieu_modcem2, mathieu_modsem2,
-    ellip_harm, ellip_harm_2
+    ellip_harm, ellip_harm_2, spherical_jn, spherical_yn,
 )
 from scipy.integrate import IntegrationWarning
 
@@ -181,12 +181,26 @@ def poch_minus(z, m):
 def sph_jn_(n, x):
     return sph_jn(n.astype('l'), x)[0][-1]
 
+def spherical_jn_(n, x):
+    return spherical_jn(n.astype('l'), x)
+
+def spherical_yn_(n, x):
+    return spherical_yn(n.astype('l'), x)
+
 def sph_yn_(n, x):
     return sph_yn(n.astype('l'), x)[0][-1]
 
 def sph_harm_(m, n, theta, phi):
     y = sph_harm(m, n, theta, phi)
     return (y.real, y.imag)
+
+def cexpm1(x, y):
+    z = expm1(x + 1j*y)
+    return z.real, z.imag
+
+def clog1p(x, y):
+    z = log1p(x + 1j*y)
+    return z.real, z.imag
 
 def test_boost():
     TESTS = [
@@ -405,13 +419,14 @@ def test_boost():
         data(chndtr, 'nccs_ipp-nccs', (2,0,1), 3, rtol=3e-5),
         data(chndtr, 'nccs_big_ipp-nccs_big', (2,0,1), 3, rtol=5e-4, knownfailure='chndtr inaccurate some points'),
 
-        data(sph_jn_, 'sph_bessel_data_ipp-sph_bessel_data', (0,1), 2, vectorized=False, knownfailure='sph_jn inaccurate at large n, small x'),
-        data(sph_yn_, 'sph_neumann_data_ipp-sph_neumann_data', (0,1), 2, rtol=4e-15, vectorized=False),
         data(sph_harm_, 'spherical_harmonic_ipp-spherical_harmonic', (1,0,3,2), (4,5), rtol=5e-11,
              param_filter=(lambda p: np.ones(p.shape, '?'),
                            lambda p: np.ones(p.shape, '?'),
                            lambda p: np.logical_and(p < 2*np.pi, p >= 0),
                            lambda p: np.logical_and(p < np.pi, p >= 0))),
+
+        data(spherical_jn_, 'sph_bessel_data_ipp-sph_bessel_data', (0,1), 2, rtol=1e-13),
+        data(spherical_yn_, 'sph_neumann_data_ipp-sph_neumann_data', (0,1), 2, rtol=8e-15),
 
         # -- not used yet (function does not exist in scipy):
         # 'ellint_pi2_data_ipp-ellint_pi2_data',
@@ -457,6 +472,8 @@ def test_local():
         data_local(ellipkinc, 'ellipkinc_neg_m', (0, 1), 2),
         data_local(ellipkm1, 'ellipkm1', 0, 1),
         data_local(ellipeinc, 'ellipeinc_neg_m', (0, 1), 2),
+        data_local(clog1p, 'log1p_expm1_complex', (0,1), (2,3), rtol=1e-14),
+        data_local(cexpm1, 'log1p_expm1_complex', (0,1), (4,5), rtol=1e-14),
     ]
 
     for test in TESTS:
@@ -471,6 +488,19 @@ def test_local():
         warnings.simplefilter("ignore", category=IntegrationWarning)
 
         for test in TESTS:
+            yield _test_factory, test
+
+    # sph_jn, sph_yn are deprecated; silence the DeprecationWarning noise 
+    TESTS_DEP = [
+        data(sph_jn_, 'sph_bessel_data_ipp-sph_bessel_data', (0,1), 2,
+            vectorized=False,
+            knownfailure='sph_jn inaccurate at large n, small x'),
+        data(sph_yn_, 'sph_neumann_data_ipp-sph_neumann_data', (0,1), 2,
+            rtol=4e-15, vectorized=False),
+    ]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=DeprecationWarning)
+        for test in TESTS_DEP:
             yield _test_factory, test
 
 

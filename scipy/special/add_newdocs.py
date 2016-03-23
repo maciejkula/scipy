@@ -2391,6 +2391,32 @@ add_newdoc("scipy.special", "huber",
 
     """)
 
+add_newdoc("scipy.special", "hyp0f1", 
+    r"""
+    hyp0f1(v, x)
+
+    Confluent hypergeometric limit function 0F1.
+
+    Parameters
+    ----------
+    v, z : array_like
+        Input values.
+
+    Returns
+    -------
+    hyp0f1 : ndarray
+        The confluent hypergeometric limit function.
+
+    Notes
+    -----
+    This function is defined as:
+
+    .. math:: _0F_1(v, z) = \sum_{k=0}^{\infty}\frac{z^k}{(v)_k k!}.
+
+    It's also the limit as :math:`q \to \infty` of :math:`_1F_1(q; v; z/q)`,
+    and satisfies the differential equation :math:`f''(z) + vf'(z) = f(z)`.
+    """)
+
 add_newdoc("scipy.special", "hyp1f1",
     """
     hyp1f1(a, b, x)
@@ -5434,4 +5460,44 @@ add_newdoc("scipy.special", "_struve_bessel_series",
     Returns
     -------
     v, err
+    """)
+
+add_newdoc("scipy.special", "_spherical_jn",
+    """
+    Internal function, use `spherical_jn` instead.
+    """)
+
+add_newdoc("scipy.special", "_spherical_jn_d",
+    """
+    Internal function, use `spherical_jn` instead.
+    """)
+
+add_newdoc("scipy.special", "_spherical_yn",
+    """
+    Internal function, use `spherical_yn` instead.
+    """)
+
+add_newdoc("scipy.special", "_spherical_yn_d",
+    """
+    Internal function, use `spherical_yn` instead.
+    """)
+
+add_newdoc("scipy.special", "_spherical_in",
+    """
+    Internal function, use `spherical_in` instead.
+    """)
+
+add_newdoc("scipy.special", "_spherical_in_d",
+    """
+    Internal function, use `spherical_in` instead.
+    """)
+
+add_newdoc("scipy.special", "_spherical_kn",
+    """
+    Internal function, use `spherical_kn` instead.
+    """)
+
+add_newdoc("scipy.special", "_spherical_kn_d",
+    """
+    Internal function, use `spherical_kn` instead.
     """)
