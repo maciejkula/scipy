@@ -419,11 +419,8 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             raise ValueError("shape mismatch in assignment")
 
         # Set values
-        i, j, x = _prepare_index_for_memoryview(i, j, x)
-
-        for row_idx in range(i.shape[0]):
-            for col_idx in range(i.shape[1]):
-                self[i[row_idx, col_idx], j[row_idx, col_idx]] = x[row_idx, col_idx]
+        i, j, x = _prepare_index_for_memoryview(i, j, self.idx_dtype, x=x)
+        self._matrix.fancy_set(i, j, x)
 
     def _mul_scalar(self, other):
         if other == 0:
@@ -453,13 +450,11 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
         return new
 
-    def reshape(self,shape):
-        new = lil_matrix(shape, dtype=self.dtype)
-        j_max = self.shape[1]
-        for i,row in enumerate(self.rows):
-            for col,j in enumerate(row):
-                new_r,new_c = np.unravel_index(i*j_max + j,shape)
-                new[new_r,new_c] = self[i,j]
+    def reshape(self, shape):
+        new = fast_lil_matrix(shape, dtype=self.dtype)
+
+        new._matrix = self._matrix.reshape(*shape)
+
         return new
 
     def toarray(self, order=None, out=None):
@@ -525,16 +520,19 @@ def _prepare_index_for_memoryview(i, j, idx_dtype, x=None):
 
     """
 
-    print(idx_dtype)
-
     if not i.flags.writeable or i.dtype is not idx_dtype:
         i = i.astype(idx_dtype)
     if not j.flags.writeable or j.dtype is not idx_dtype:
         j = j.astype(idx_dtype)
 
     if x is not None:
+
+        if x.dtype == np.bool:
+            x = x.astype(np.uint8)
+
         if not x.flags.writeable:
             x = x.copy()
+
         return i, j, x
     else:
         return i, j

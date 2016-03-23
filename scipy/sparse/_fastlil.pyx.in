@@ -115,17 +115,8 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         cdef vector[{{VALUE_T}}] *row_data
         cdef {{IDX_T}} idx, col_at_idx
 
-        if row < 0:
-            row = self.rows + row
-
-        if row >= self.indices.size():
-            return 0
-
         row_indices = &(self.indices[row])
         row_data = &(self.data[row])
-
-        if col < 0:
-            col = self.cols + col
 
         if row_indices.size() == 0:
             return 0
@@ -161,11 +152,11 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         row_data_vec = &(mat.data[0])
 
         for i in range(cols):
-            row_idx = row_indices[i]
-            col_idx = col_indices[i]
+            row_idx = check_idx_{{PYIDX}}(row_indices[i], self.rows)
+            col_idx = check_idx_{{PYIDX}}(col_indices[i], self.cols)
 
-            if row_idx >= self.rows or col_idx >= self.cols:
-                raise IndexError
+            if row_idx == -1 or col_idx == -1:
+                    raise IndexError
 
             value = self.get(row_idx, col_idx)
 
@@ -195,10 +186,10 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
             row_data_vec = &(mat.data[i])
 
             for j in range(i_idx.shape[1]):
-                row_idx = i_idx[i, j]
-                col_idx = j_idx[i, j]
+                row_idx = check_idx_{{PYIDX}}(i_idx[i, j], self.rows)
+                col_idx = check_idx_{{PYIDX}}(j_idx[i, j], self.cols)
 
-                if row_idx >= self.rows or col_idx >= self.cols:
+                if row_idx == -1 or col_idx == -1:
                     raise IndexError
 
                 value = self.get(row_idx, col_idx)
@@ -208,6 +199,38 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
                     row_data_vec.push_back(value)
 
         return mat
+
+    cpdef fancy_set(self,
+                    {{IDX_T}}[:, :] i_idx,
+                    {{IDX_T}}[:, :] j_idx,
+                    {{if PYVALUE == 'bool'}}
+                    cnp.npy_uint8[:, :] data
+                    {{else}}
+                    {{VALUE_T}}[:, :] data
+                    {{endif}}
+    ):
+
+        cdef {{IDX_T}} row_idx, col_idx, i, j
+        cdef {{VALUE_T}} value
+        cdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} mat
+        cdef vector[{{IDX_T}}] *row_indices_vec
+        cdef vector[{{VALUE_T}}] *row_data_vec
+
+        for i in range(i_idx.shape[0]):
+
+            row_indices_vec = &(self.indices[i])
+            row_data_vec = &(self.data[i])
+
+            for j in range(i_idx.shape[1]):
+                row_idx = check_idx_{{PYIDX}}(i_idx[i, j], self.rows)
+                col_idx = check_idx_{{PYIDX}}(j_idx[i, j], self.cols)
+
+                if row_idx == -1 or col_idx == -1:
+                    raise IndexError
+
+                value = data[i, j]
+
+                self.set(row_idx, col_idx, value)
 
     cpdef mul(self, {{VALUE_T}} value):
 
@@ -219,7 +242,7 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
             for j in range(row_data.size()):
                 deref(row_data)[j] = deref(row_data)[j] * value
 
-    cpdef {{IDX_T}} getnnz(self, axis):
+    cpdef getnnz(self, axis):
 
         cdef {{IDX_T}} i, j, col
         cdef {{IDX_T}} nnz = 0
@@ -235,7 +258,7 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
             return nnz
 
-        if axis == 0:
+        if axis == 1:
             nnz_array = np.empty(self.rows, dtype=np.{{PYIDX}})
 
             for i in range(self.rows):
@@ -243,7 +266,7 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
             return nnz_array
 
-        if axis == 1:
+        if axis == 0:
             nnz_array = np.zeros(self.cols, dtype=np.{{PYIDX}})
 
             for i in range(self.rows):
@@ -260,6 +283,38 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
         return (np.array(self.indices[row]),
                 np.array(self.data[row]))
+
+    cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} reshape(self,
+                                                        {{IDX_T}} rows,
+                                                        {{IDX_T}} cols):
+
+        cdef {{IDX_T}} row_idx, col_idx, i, new_row_idx, new_col_idx
+        cdef {{VALUE_T}} value
+        cdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} mat
+
+        cdef vector[{{IDX_T}}] *self_indices_vec
+        cdef vector[{{VALUE_T}}] *self_data_vec
+
+        mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(rows, cols)
+
+        new_row_idx = 0
+
+        for row_idx in range(self.rows):
+
+            self_indices_vec = &(self.indices[row_idx])
+            self_data_vec = &(self.data[row_idx])
+
+            for i in range(self_indices_vec.size()):
+                col_idx = deref(self_indices_vec)[i]
+                value = deref(self_data_vec)[i]
+
+                new_row_idx = (row_idx * self.cols + col_idx) / cols
+                new_col_idx = (row_idx * self.cols + col_idx) % cols
+
+                new_indices_vec = mat.indices[new_row_idx].push_back(new_col_idx)
+                new_data_vec = mat.data[new_row_idx].push_back(value)
+
+        return mat
 
     cpdef fromcsr(self,
                   cnp.ndarray[{{IDX_T}}, ndim=1] indices,
@@ -372,4 +427,14 @@ cdef {{IDX_T}} binary_search_{{PYIDX}}({{IDX_T}}* vec, {{IDX_T}} size, {{IDX_T}}
     else:
         return first
 
+
+cdef {{IDX_T}} check_idx_{{PYIDX}}({{IDX_T}} idx, {{IDX_T}} max_idx):
+
+    if idx < 0:
+        idx = max_idx + idx
+
+    if idx >= max_idx or idx < 0:
+        return -1
+    else:
+        return idx
 {{endfor}}
