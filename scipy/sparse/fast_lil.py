@@ -12,7 +12,8 @@ import numpy as np
 from scipy._lib.six import xrange
 from .base import spmatrix, isspmatrix
 from .sputils import (getdtype, isshape, isscalarlike, IndexMixin,
-                      upcast_scalar, get_index_dtype, isintlike)
+                      upcast_scalar, get_index_dtype, isintlike,
+                      get_index_dtype)
 from . import _fastlil
 from .lil import isspmatrix_lil
 
@@ -85,7 +86,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
     def __init__(self, arg1, shape=None, dtype=None, copy=False):
         spmatrix.__init__(self)
         self.dtype = getdtype(dtype, arg1, default=float)
-        self.idx_dtype = np.dtype(np.int32)
+        self.idx_dtype = None
 
         # First get the shape
         if isspmatrix(arg1):
@@ -101,9 +102,11 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             if isspmatrix_fast_lil(A):
                 if copy:
                     A = A.copy()
+                self.idx_dtype = A.idx_dtype
                 self._matrix = A._matrix
             else:
                 A = A.tocsr()
+                self.idx_dtype = A.indices.dtype
                 self._matrix = self._get_matrix()
 
                 if A.data.dtype == np.bool:
@@ -117,6 +120,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
                     raise ValueError('invalid use of shape parameter')
                 M, N = arg1
                 self.shape = (M, N)
+                self.idx_dtype = np.dtype(get_index_dtype(maxval=max(*self.shape)))
                 self._matrix = self._get_matrix()
             else:
                 raise TypeError('unrecognized lil_matrix constructor usage')
@@ -132,6 +136,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
                 self.shape = A.shape
                 self.dtype = A.dtype
+                self.idx_dtype = A.indices.dtype
                 self._matrix = self._get_matrix()
 
                 if A.data.dtype == np.bool:
@@ -322,7 +327,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         if i.size == 0:
             return fast_lil_matrix(i.shape, dtype=self.dtype)
 
-        i, j = _prepare_index_for_memoryview(i, j, self.idx_dtype)
+        i, j = _prepare_index_for_memoryview(i, j, self._matrix.idx_dtype())
         new_rows, new_cols = i.shape
 
         new = fast_lil_matrix(i.shape, dtype=self.dtype)
@@ -378,7 +383,8 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             raise ValueError("shape mismatch in assignment")
 
         # Set values
-        i, j, x = _prepare_index_for_memoryview(i, j, self.idx_dtype, x=x)
+        i, j, x = _prepare_index_for_memoryview(i, j,
+                                                self._matrix.idx_dtype(), x=x)
         self._matrix.fancy_set(i, j, x)
 
     def _mul_scalar(self, other):
@@ -429,7 +435,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         return d
 
     def transpose(self):
-        return self.tocsr().transpose().tolil()
+        return self.tocsr().transpose().tocsr().tofastlil()
 
     def tofastlil(self, copy=False):
         if copy:

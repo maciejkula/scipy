@@ -78,6 +78,10 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
             self.indices.push_back(vector[{{IDX_T}}]())
             self.data.push_back(vector[{{VALUE_T}}]())
 
+    def idx_dtype(self):
+
+        return np.dtype('{{PYIDX}}')
+
     cpdef void set(self, {{IDX_T}} row, {{IDX_T}} col, {{VALUE_T}} value):
 
         cdef vector[{{IDX_T}}] *row_indices
