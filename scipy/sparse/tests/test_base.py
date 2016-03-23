@@ -1628,8 +1628,8 @@ class _TestCommon:
                 if name == "sign":
                     raise nose.SkipTest("sign conflicts with comparison op "
                                         "support on Numpy without __numpy_ufunc__")
-                if self.spmatrix in (dok_matrix, lil_matrix):
-                    raise nose.SkipTest("Unary ops not implemented for dok/lil "
+                if self.spmatrix in (dok_matrix, lil_matrix, fast_lil_matrix):
+                    raise nose.SkipTest("Unary ops not implemented for dok/lil/fastlil "
                                         "with Numpy without __numpy_ufunc__")
             ufunc = getattr(np, name)
 

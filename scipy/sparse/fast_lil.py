@@ -166,7 +166,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             for col_idx, value in zip(row_indices, row_data):
                 self._set(row_idx, col_idx, value)
 
-    def set_shape(self,shape):
+    def set_shape(self, shape):
         shape = tuple(shape)
 
         if len(shape) != 2:
@@ -190,30 +190,27 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
     shape = property(fget=spmatrix.get_shape, fset=set_shape)
 
-    def __iadd__(self,other):
-        self[:,:] = self + other
+    def __iadd__(self, other):
+        self[:, :] = self + other
         return self
 
-    def __isub__(self,other):
-        self[:,:] = self - other
+    def __isub__(self, other):
+        self[:, :] = self - other
         return self
 
-    def __imul__(self,other):
+    def __imul__(self, other):
         if isscalarlike(other):
-            self[:,:] = self * other
+            self[:, :] = self * other
             return self
         else:
             return NotImplemented
 
-    def __itruediv__(self,other):
+    def __itruediv__(self, other):
         if isscalarlike(other):
-            self[:,:] = self / other
+            self[:, :] = self / other
             return self
         else:
             return NotImplemented
-
-    # Whenever the dimensions change, empty lists should be created for each
-    # row
 
     def getnnz(self, axis=None):
         """Get the count of explicitly-stored values (nonzeros)
@@ -235,22 +232,13 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         else:
             raise ValueError('axis out of bounds')
 
+    def count_nonzero(self):
+        return self._matrix.count_nonzero()
+
+    getnnz.__doc__ = spmatrix.getnnz.__doc__
+    count_nonzero.__doc__ = spmatrix.count_nonzero.__doc__
+
     nnz = property(fget=getnnz)
-
-    def __str__(self):
-        val = ''
-        for i, row in enumerate(self.rows):
-            for pos, j in enumerate(row):
-                val += "  %s\t%s\n" % (str((i, j)), str(self.data[i][pos]))
-        return val[:-1]
-
-    def getrowview(self, i):
-        """Returns a view of the 'i'th row (without copying).
-        """
-        new = lil_matrix((1, self.shape[1]), dtype=self.dtype)
-        new.rows[0] = self.rows[i]
-        new.data[0] = self.data[i]
-        return new
 
     def getrow(self, i):
         """Returns a copy of the 'i'th row.
@@ -261,14 +249,14 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
     def _check_row_bounds(self, i):
         if i < 0:
-            i += self.shape[0]
+            i = i + self.shape[0]
         if i < 0 or i >= self.shape[0]:
             raise IndexError('row index out of bounds')
         return i
 
     def _check_col_bounds(self, j):
         if j < 0:
-            j += self.shape[1]
+            j = j + self.shape[1]
         if j < 0 or j >= self.shape[1]:
             raise IndexError('column index out of bounds')
         return j
@@ -309,7 +297,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             i_intlike = True
         elif isinstance(i, slice):
             i_slice = True
-        elif isinstance(i, (list, np.ndarray)):
+        elif isinstance(i, (list, tuple, np.ndarray)):
             i_list = True
         else:
             raise ValueError
@@ -318,7 +306,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             j_intlike = True
         elif isinstance(j, slice):
             j_slice = True
-        elif isinstance(j, (list, np.ndarray)):
+        elif isinstance(j, (list, tuple, np.ndarray)):
             j_list = True
         else:
             raise ValueError
@@ -342,35 +330,6 @@ class fast_lil_matrix(spmatrix, IndexMixin):
                                              new_cols,
                                              i,
                                              j)
-
-        return new
-
-    def _get_row_ranges(self, rows, col_slice):
-        """
-        Fast path for indexing in the case where column index is slice.
-
-        This gains performance improvement over brute force by more
-        efficient skipping of zeros, by accessing the elements
-        column-wise in order.
-
-        Parameters
-        ----------
-        rows : sequence or xrange
-            Rows indexed. If xrange, must be within valid bounds.
-        col_slice : slice
-            Columns indexed
-
-        """
-        j_start, j_stop, j_stride = col_slice.indices(self.shape[1])
-        col_range = xrange(j_start, j_stop, j_stride)
-        nj = len(col_range)
-        new = lil_matrix((len(rows), nj), dtype=self.dtype)
-
-        _csparsetools.lil_get_row_ranges(self.shape[0], self.shape[1],
-                                         self.rows, self.data,
-                                         new.rows, new.data,
-                                         rows,
-                                         j_start, j_stop, j_stride, nj)
 
         return new
 
@@ -478,7 +437,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         else:
             return self
 
-    def tocsr(self):
+    def tocsr(self, copy=False):
         """ Return Compressed Sparse Row format arrays for this matrix.
         """
 

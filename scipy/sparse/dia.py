@@ -261,7 +261,7 @@ class dia_matrix(_data_matrix):
 
         return self.tocsr().tofastlil()
 
-    def tocoo(self):
+    def tocoo(self, copy=False):
 
         num_rows, num_cols = self.shape
         num_offsets, offset_len = self.data.shape

@@ -886,6 +886,8 @@ class spmatrix(object):
         functions.
         """
 
+        print('@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@')
+
         if any(not isinstance(x, spmatrix) and np.asarray(x).dtype == object
                for x in inputs):
             # preserve previous behavior with object arrays

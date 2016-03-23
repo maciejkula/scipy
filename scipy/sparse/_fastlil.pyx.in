@@ -242,6 +242,23 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
             for j in range(row_data.size()):
                 deref(row_data)[j] = deref(row_data)[j] * value
 
+    cpdef {{IDX_T}} count_nonzero(self):
+
+        cdef {{IDX_T}} i, j
+        cdef {{IDX_T}} nnz = 0
+
+        cdef vector[{{VALUE_T}}] *row_data
+
+        for i in range(self.rows):
+
+            row_data = &(self.data[i])
+
+            for j in range(row_data.size()):
+                if deref(row_data)[j] != 0.0:
+                    nnz += 1
+
+        return nnz
+
     cpdef getnnz(self, axis):
 
         cdef {{IDX_T}} i, j, col
