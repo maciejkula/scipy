@@ -426,11 +426,14 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         """See the docstring for `spmatrix.toarray`."""
         d = self._process_toarray_args(order, out)
 
-        for row_idx in range(self.shape[0]):
-            row_indices, row_data = self._matrix.get_row(row_idx)
+        if d.dtype != np.bool:
+            self._matrix.todense(d)
+        else:
+            for row_idx in range(self.shape[0]):
+                row_indices, row_data = self._matrix.get_row(row_idx)
 
-            for i in range(len(row_indices)):
-                d[row_idx, row_indices[i]] = row_data[i]
+                for i in range(len(row_indices)):
+                    d[row_idx, row_indices[i]] = row_data[i]
 
         return d
 

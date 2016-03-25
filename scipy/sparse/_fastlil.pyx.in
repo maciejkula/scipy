@@ -236,6 +236,25 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
                 self.set(row_idx, col_idx, value)
 
+    cpdef todense(self, {{VALUE_T}}[:, :] dense):
+
+        cdef {{IDX_T}} i, j, col_idx
+        cdef {{VALUE_T}} value
+
+        cdef vector[{{IDX_T}}] *row_indices
+        cdef vector[{{VALUE_T}}] *row_data
+
+        for i in range(self.rows):
+
+            row_indices = &(self.indices[i])
+            row_data = &(self.data[i])
+
+            for j in range(row_indices.size()):
+                col_idx = deref(row_indices)[j]
+                value = deref(row_data)[j]
+
+                dense[i, col_idx] = value
+
     cpdef mul(self, {{VALUE_T}} value):
 
         cdef vector[{{VALUE_T}}] *row_data
