@@ -257,6 +257,8 @@ class dia_matrix(_data_matrix):
         #this could be faster
         return self.tocoo(copy=copy).tocsc()
 
+    tocsc.__doc__ = spmatrix.tocsc.__doc__
+
     def tofastlil(self):
 
         return self.tocsr().tofastlil()

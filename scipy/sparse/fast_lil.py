@@ -19,7 +19,7 @@ from .lil import isspmatrix_lil
 
 
 class fast_lil_matrix(spmatrix, IndexMixin):
-    """Row-based linked list sparse matrix
+    """Row-based sparse matrix
 
     This is a structure for constructing sparse matrices incrementally.
     Note that inserting a single item can take linear time in the worst case;
@@ -27,13 +27,13 @@ class fast_lil_matrix(spmatrix, IndexMixin):
     index, per row.
 
     This can be instantiated in several ways:
-        lil_matrix(D)
+        fast_lil_matrix(D)
             with a dense matrix or rank-2 ndarray D
 
-        lil_matrix(S)
-            with another sparse matrix S (equivalent to S.tolil())
+        fast_lil_matrix(S)
+            with another sparse matrix S (equivalent to S.tofastlil())
 
-        lil_matrix((M, N), [dtype])
+        fast_lil_matrix((M, N), [dtype])
             to construct an empty matrix with shape (M, N)
             dtype is optional, defaulting to dtype='d'.
 
@@ -47,10 +47,6 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         Number of dimensions (this is always 2)
     nnz
         Number of nonzero elements
-    data
-        LIL format data array of the matrix
-    rows
-        LIL format row index array of the matrix
 
     Notes
     -----
@@ -86,7 +82,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
     def __init__(self, arg1, shape=None, dtype=None, copy=False):
         spmatrix.__init__(self)
         self.dtype = getdtype(dtype, arg1, default=float)
-        self.idx_dtype = None
+        self._idx_dtype = None
 
         # First get the shape
         if isspmatrix(arg1):
@@ -102,11 +98,11 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             if isspmatrix_fast_lil(A):
                 if copy:
                     A = A.copy()
-                self.idx_dtype = A.idx_dtype
+                self._idx_dtype = A._idx_dtype
                 self._matrix = A._matrix
             else:
                 A = A.tocsr()
-                self.idx_dtype = A.indices.dtype
+                self._idx_dtype = A.indices.dtype
                 self._matrix = self._get_matrix()
 
                 if A.data.dtype == np.bool:
@@ -120,7 +116,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
                     raise ValueError('invalid use of shape parameter')
                 M, N = arg1
                 self.shape = (M, N)
-                self.idx_dtype = np.dtype(get_index_dtype(maxval=max(*self.shape)))
+                self._idx_dtype = np.dtype(get_index_dtype(maxval=max(*self.shape)))
                 self._matrix = self._get_matrix()
             else:
                 raise TypeError('unrecognized lil_matrix constructor usage')
@@ -136,7 +132,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
                 self.shape = A.shape
                 self.dtype = A.dtype
-                self.idx_dtype = A.indices.dtype
+                self._idx_dtype = A.indices.dtype
                 self._matrix = self._get_matrix()
 
                 if A.data.dtype == np.bool:
@@ -150,19 +146,15 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
         return getattr(_fastlil,
                        'fast_lil_matrix_{}_{}'.format(
-                           str(self.idx_dtype),
+                           str(self._idx_dtype),
                            str(self.dtype)))(np.intp(rows),
                                              np.intp(cols))
 
     def _set(self, row, col, value):
 
-        self._matrix.set(self.idx_dtype(row), self.idx_dtype(col), self.dtype.type(value))
-
-    def _get(self, row, col, value):
-
-        return self._matrix.get(self.idx_dtype(row),
-                                self.idx_dtype(col),
-                                self.dtype.type(value))
+        self._matrix.safe_set(self._idx_dtype(row),
+                              self._idx_dtype(col),
+                              self.dtype.type(value))
 
     def _from_lil(self, lil_matrix):
 
@@ -176,9 +168,9 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
         if len(shape) != 2:
             raise ValueError("Only two-dimensional sparse arrays "
-                                     "are supported.")
+                             "are supported.")
         try:
-            shape = int(shape[0]),int(shape[1])  # floats, other weirdness
+            shape = int(shape[0]), int(shape[1])  # floats, other weirdness
         except:
             raise TypeError('invalid shape')
 
@@ -306,7 +298,8 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         # and the row index is an integer or 1d
         if j_slice and j == slice(None, None, None):
             if i_slice:
-                i = np.arange(*i.indices(self.shape[0]), dtype=self._matrix.idx_dtype())
+                i = np.arange(*i.indices(self.shape[0]),
+                              dtype=self._matrix.idx_dtype())
             else:
                 i = np.atleast_1d(i).astype(self._matrix.idx_dtype())
 
@@ -321,7 +314,8 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         # Fast path for col indexing when we want all the rows
         if i_slice and i == slice(None, None, None):
             if j_slice:
-                j = np.arange(*j.indices(self.shape[1]), dtype=self._matrix.idx_dtype())
+                j = np.arange(*j.indices(self.shape[1]),
+                              dtype=self._matrix.idx_dtype())
             else:
                 j = np.atleast_1d(j).astype(self._matrix.idx_dtype())
 

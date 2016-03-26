@@ -62,6 +62,7 @@ from libcpp.vector cimport vector
 {{for PYIDX, PYVALUE, IDX_T, VALUE_T in get_dispatch2(IDX_TYPES, VALUE_TYPES)}}
 cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
     """
+    Fast row-based matrix.
     """
 
     cdef {{IDX_T}} rows
@@ -80,10 +81,16 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
             self.data.push_back(vector[{{VALUE_T}}]())
 
     def idx_dtype(self):
+        """
+        Return the index dtype.
+        """
 
         return np.dtype('{{PYIDX}}')
 
     cdef void set(self, {{IDX_T}} row, {{IDX_T}} col, {{VALUE_T}} value):
+        """
+        Set (row, col) to value, without bounds checking.
+        """
 
         cdef vector[{{IDX_T}}] *row_indices
         cdef vector[{{VALUE_T}}] *row_data
@@ -115,6 +122,9 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
             row_data.insert(row_data.begin() + idx, value)
 
     def safe_set(self, {{IDX_T}} row, {{IDX_T}} col, {{VALUE_T}} value):
+        """
+        Set (row, col) to value, with bounds checking.
+        """
 
         cdef {{IDX_T}} row_idx, col_idx
 
@@ -129,6 +139,9 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         self.set(row_idx, col_idx, value)
 
     def safe_get(self, {{IDX_T}} row, {{IDX_T}} col):
+        """
+        Get value at (row, col), with bounds checking.
+        """
 
         cdef {{IDX_T}} row_idx, col_idx
 
@@ -143,6 +156,9 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         return self.get(row_idx, col_idx)
 
     cdef {{VALUE_T}} get(self, {{IDX_T}} row, {{IDX_T}} col):
+        """
+        Get value at (row, col), without bounds checking.
+        """
 
         cdef vector[{{IDX_T}}] *row_indices
         cdef vector[{{VALUE_T}}] *row_data
@@ -174,6 +190,11 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
     cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get_elems(self,
                                                                 cnp.ndarray[{{IDX_T}}, ndim=1] row_indices,
                                                                 cnp.ndarray[{{IDX_T}}, ndim=1] col_indices):
+        """
+        Fancy indexing: get elements at coordinates given by
+        row and column indices.
+        """
+
         cdef {{IDX_T}} rows, cols, row_idx, col_idx, i
         cdef {{VALUE_T}} value
         cdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} mat
@@ -205,6 +226,9 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
     cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get_rows(self,
                                                                {{IDX_T}}[:] row_indices):
+        """
+        Fancy indexing: get rows indicated by row_indices.
+        """
 
         cdef {{IDX_T}} i, rows, row_idx
 
@@ -226,6 +250,9 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
     cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get_cols(self,
                                                                {{IDX_T}}[:] col_indices):
+        """
+        Fancy indexing: get cols indicated by col_indices.
+        """
 
         cdef {{IDX_T}} i, cols, col_idx
         cdef {{VALUE_T}} value
@@ -263,6 +290,9 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
                                                           {{IDX_T}} cols,
                                                           {{IDX_T}}[:, :] i_idx,
                                                           {{IDX_T}}[:, :] j_idx):
+        """
+        Fancy indexing: the rest.
+        """
 
         cdef {{IDX_T}} row_idx, col_idx, i, j
         cdef {{VALUE_T}} value
