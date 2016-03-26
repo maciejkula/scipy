@@ -304,34 +304,34 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
         # Fast path for row indexing when we want all the cols
         # and the row index is an integer or 1d
-        # if j_slice and j == slice(None, None, None):
-        #     if i_slice:
-        #         i = np.arange(*i.indices(self.shape[0]), dtype=self._matrix.idx_dtype())
-        #     else:
-        #         i = np.atleast_1d(i).astype(self._matrix.idx_dtype())
+        if j_slice and j == slice(None, None, None):
+            if i_slice:
+                i = np.arange(*i.indices(self.shape[0]), dtype=self._matrix.idx_dtype())
+            else:
+                i = np.atleast_1d(i).astype(self._matrix.idx_dtype())
 
-        #     if i.ndim == 1:
-        #         new = fast_lil_matrix((i.shape[0],
-        #                                self.shape[1]),
-        #                               dtype=self.dtype)
-        #         new._matrix = self._matrix.fancy_get_rows(i)
+            if i.ndim == 1:
+                new = fast_lil_matrix((i.shape[0],
+                                       self.shape[1]),
+                                      dtype=self.dtype)
+                new._matrix = self._matrix.fancy_get_rows(i)
 
-        #         return new
+                return new
 
         # Fast path for col indexing when we want all the rows
-        # if i_slice and i == slice(None, None, None):
-        #     if j_slice:
-        #         j = np.arange(*j.indices(self.shape[1]), dtype=self._matrix.idx_dtype())
-        #     else:
-        #         j = np.atleast_1d(j).astype(self._matrix.idx_dtype())
+        if i_slice and i == slice(None, None, None):
+            if j_slice:
+                j = np.arange(*j.indices(self.shape[1]), dtype=self._matrix.idx_dtype())
+            else:
+                j = np.atleast_1d(j).astype(self._matrix.idx_dtype())
 
-        #     if j.ndim == 1:
-        #         new = fast_lil_matrix((self.shape[0],
-        #                                j.shape[0]),
-        #                               dtype=self.dtype)
-        #         new._matrix = self._matrix.fancy_get_cols(j)
+            if j.ndim == 1:
+                new = fast_lil_matrix((self.shape[0],
+                                       j.shape[0]),
+                                      dtype=self.dtype)
+                new._matrix = self._matrix.fancy_get_cols(j)
 
-        #         return new
+                return new
 
         # Full-blown indexing
         i, j = self._index_to_arrays(i, j)

@@ -3671,6 +3671,25 @@ class TestFastLIL(sparse_test_class(minmax=False)):
     spmatrix = fast_lil_matrix
     math_dtypes = [np.int_, np.float_, np.complex_]
 
+    def test_set(self):
+
+        rnd = np.random.RandomState(10)
+
+        A = matrix(rnd.randn(10, 10))
+        row_indices = np.arange(10)
+        col_indices = np.arange(10)
+
+        rnd.shuffle(row_indices)
+        rnd.shuffle(col_indices)
+
+        B = fast_lil_matrix((10, 10))
+
+        for row_idx in row_indices:
+            for col_idx in col_indices:
+                B[row_idx, col_idx] = A[row_idx, col_idx]
+
+        assert_array_equal(B.todense(), A)
+
     def test_dot(self):
         A = matrix(zeros((10,10)))
         A[0,3] = 10
