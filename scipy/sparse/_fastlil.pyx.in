@@ -82,7 +82,7 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
         return np.dtype('{{PYIDX}}')
 
-    cpdef void set(self, {{IDX_T}} row, {{IDX_T}} col, {{VALUE_T}} value):
+    cdef void set(self, {{IDX_T}} row, {{IDX_T}} col, {{VALUE_T}} value):
 
         cdef vector[{{IDX_T}}] *row_indices
         cdef vector[{{VALUE_T}}] *row_data
@@ -113,7 +113,35 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
             row_indices.insert(row_indices.begin() + idx, col)
             row_data.insert(row_data.begin() + idx, value)
 
-    cpdef {{VALUE_T}} get(self, {{IDX_T}} row, {{IDX_T}} col):
+    def safe_set(self, {{IDX_T}} row, {{IDX_T}} col, {{VALUE_T}} value):
+
+        cdef {{IDX_T}} row_idx, col_idx
+
+        row_idx = check_idx_{{PYIDX}}(row, self.rows)
+        col_idx = check_idx_{{PYIDX}}(col, self.cols)
+
+        if row_idx == -1:
+            raise IndexError('row index out of bounds')
+        if col_idx == -1:
+            raise IndexError('column index out of bounds')
+
+        self.set(row_idx, col_idx, value)
+
+    def safe_get(self, {{IDX_T}} row, {{IDX_T}} col):
+
+        cdef {{IDX_T}} row_idx, col_idx
+
+        row_idx = check_idx_{{PYIDX}}(row, self.rows)
+        col_idx = check_idx_{{PYIDX}}(col, self.cols)
+
+        if row_idx == -1:
+            raise IndexError('row index out of bounds')
+        if col_idx == -1:
+            raise IndexError('column index out of bounds')
+
+        return self.get(row_idx, col_idx)
+
+    cdef {{VALUE_T}} get(self, {{IDX_T}} row, {{IDX_T}} col):
 
         cdef vector[{{IDX_T}}] *row_indices
         cdef vector[{{VALUE_T}}] *row_data
@@ -122,7 +150,11 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         row_indices = &(self.indices[row])
         row_data = &(self.data[row])
 
-        if row_indices.size() == 0:
+        if (
+                row_indices.size() == 0
+                or deref(row_indices)[0] > col
+                or deref(row_indices)[row_indices.size() - 1] < col
+        ):
             return 0
         else:
             idx = binary_search_{{PYIDX}}(&(deref(row_indices)[0]), row_indices.size(),
@@ -189,6 +221,40 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
                                   self.indices[row_idx].end())
             mat.data[i].assign(self.data[row_idx].begin(),
                                self.data[row_idx].end())
+        return mat
+
+    cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get_cols(self,
+                                                               {{IDX_T}}[:] col_indices):
+
+        cdef {{IDX_T}} i, cols, col_idx
+        cdef {{VALUE_T}} value
+        cdef vector[{{IDX_T}}] *row_indices_vec
+        cdef vector[{{VALUE_T}}] *row_data_vec
+
+        cols = col_indices.shape[0]
+
+        mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(self.rows, cols)
+
+        for row_idx in range(self.rows):
+
+            row_indices_vec = &(self.indices[row_idx])
+            row_data_vec = &(self.data[row_idx])
+
+            if row_indices_vec.size() == 0:
+                continue
+
+            for i in range(cols):
+                col_idx = check_idx_{{PYIDX}}(col_indices[i], self.cols)
+
+                if col_idx == -1:
+                    raise IndexError
+
+                value = self.get(row_idx, col_idx)
+
+                if value != 0:
+                    mat.indices[row_idx].push_back(i)
+                    mat.data[row_idx].push_back(value)
+
         return mat
 
     cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get(self,
@@ -472,21 +538,24 @@ cdef {{IDX_T}} binary_search_{{PYIDX}}({{IDX_T}}* vec, {{IDX_T}} size, {{IDX_T}}
     Binary seach in an array of {{IDX_T}}s
     """
 
-    cdef {{IDX_T}} mid
+    cdef {{IDX_T}} mid, val
 
-    while (first < last):
-        mid = (first + last) / 2
-        if (vec[mid] == x):
+    mid = (first + last) >> 1
+
+    while first < last:
+
+        val = vec[mid]
+
+        if val == x:
             return mid
-        elif vec[mid] > x:
-            last = mid - 1
-        else:
+        elif val < x:
             first = mid + 1
+        else:
+            last = mid
 
-    if (first == size):
-        return first
-    else:
-        return first
+        mid = (first + last) >> 1
+
+    return mid
 
 
 cdef {{IDX_T}} check_idx_{{PYIDX}}({{IDX_T}} idx, {{IDX_T}} max_idx):

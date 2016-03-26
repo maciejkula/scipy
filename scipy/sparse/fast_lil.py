@@ -248,23 +248,8 @@ class fast_lil_matrix(spmatrix, IndexMixin):
     def getrow(self, i):
         """Returns a copy of the 'i'th row.
         """
-        i = self._check_row_bounds(i)
 
         return self[i, :]
-
-    def _check_row_bounds(self, i):
-        if i < 0:
-            i = i + self.shape[0]
-        if i < 0 or i >= self.shape[0]:
-            raise IndexError('row index out of bounds')
-        return i
-
-    def _check_col_bounds(self, j):
-        if j < 0:
-            j = j + self.shape[1]
-        if j < 0 or j >= self.shape[1]:
-            raise IndexError('column index out of bounds')
-        return j
 
     def __getitem__(self, index):
         """Return the element(s) index=(i, j), where j may be a slice.
@@ -281,10 +266,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
             if ((isinstance(i, int) or isinstance(i, np.integer)) and
                     (isinstance(j, int) or isinstance(j, np.integer))):
 
-                i = self._check_row_bounds(i)
-                j = self._check_col_bounds(j)
-
-                return self._matrix.get(i, j)
+                return self._matrix.safe_get(i, j)
 
         # Utilities found in IndexMixin
         i, j = self._unpack_index(index)
@@ -318,25 +300,38 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
         # Fast path for integer indices
         if i_intlike and j_intlike:
-            i = self._check_row_bounds(i)
-            j = self._check_col_bounds(j)
-            return self._matrix.get(i, j)
+            return self._matrix.safe_get(i, j)
 
         # Fast path for row indexing when we want all the cols
         # and the row index is an integer or 1d
-        if j_slice and j == slice(None, None, None):
-            if i_slice:
-                i = np.arange(*i.indices(self.shape[0]), dtype=self._matrix.idx_dtype())
-            else:
-                i = np.atleast_1d(i).astype(self._matrix.idx_dtype())
+        # if j_slice and j == slice(None, None, None):
+        #     if i_slice:
+        #         i = np.arange(*i.indices(self.shape[0]), dtype=self._matrix.idx_dtype())
+        #     else:
+        #         i = np.atleast_1d(i).astype(self._matrix.idx_dtype())
 
-            if i.ndim == 1:
-                new = fast_lil_matrix((i.shape[0],
-                                       self.shape[1]),
-                                      dtype=self.dtype)
-                new._matrix = self._matrix.fancy_get_rows(i)
+        #     if i.ndim == 1:
+        #         new = fast_lil_matrix((i.shape[0],
+        #                                self.shape[1]),
+        #                               dtype=self.dtype)
+        #         new._matrix = self._matrix.fancy_get_rows(i)
 
-                return new
+        #         return new
+
+        # Fast path for col indexing when we want all the rows
+        # if i_slice and i == slice(None, None, None):
+        #     if j_slice:
+        #         j = np.arange(*j.indices(self.shape[1]), dtype=self._matrix.idx_dtype())
+        #     else:
+        #         j = np.atleast_1d(j).astype(self._matrix.idx_dtype())
+
+        #     if j.ndim == 1:
+        #         new = fast_lil_matrix((self.shape[0],
+        #                                j.shape[0]),
+        #                               dtype=self.dtype)
+        #         new._matrix = self._matrix.fancy_get_cols(j)
+
+        #         return new
 
         # Full-blown indexing
         i, j = self._index_to_arrays(i, j)
@@ -370,10 +365,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
                     # Triggered if input was an ndarray
                     raise ValueError("Trying to assign a sequence to an item")
 
-                i = self._check_row_bounds(i)
-                j = self._check_col_bounds(j)
-
-                self._matrix.set(i, j, x)
+                self._matrix.safe_set(i, j, x)
                 return
 
         # General indexing

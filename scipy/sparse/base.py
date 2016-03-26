@@ -711,6 +711,15 @@ class spmatrix(object):
         """
         return self.tocsr(copy=False).tolil(copy=copy)
 
+    def tofastlil(self, copy=False):
+        """Convert this matrix to Fast LInked List format.
+
+        With copy=False, the data/indices may be shared between this matrix and
+        the resultant lil_matrix.
+        """
+
+        return self.tocsr(copy=False).tofastlil()
+
     def todia(self, copy=False):
         """Convert this matrix to sparse DIAgonal format.
 
