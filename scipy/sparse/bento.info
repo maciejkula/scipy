@@ -18,4 +18,5 @@ Library:
             sparsetools/bsr.cxx,
             sparsetools/csc.cxx,
             sparsetools/csr.cxx,
-            sparsetools/other.cxx
+            sparsetools/other.cxx,
+	    sparsetools/vov.cxx
