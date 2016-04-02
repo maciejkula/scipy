@@ -136,12 +136,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
                 self._idx_dtype = A.indices.dtype
                 self._matrix = self._get_matrix()
 
-                if A.data.dtype == np.bool:
-                    self._matrix.fromcsr(A.indices,
-                                         A.indptr,
-                                         A.data.astype(np.uint8))
-                else:
-                    self._matrix.fromcsr(A.indices, A.indptr, A.data)
+                self._matrix.fromcsr(A.indices, A.indptr, A.data)
 
     def _get_matrix(self):
 
@@ -347,6 +342,10 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         return new
 
     def __setitem__(self, index, x):
+
+        i, j = index
+        return self._matrix.safe_set(i, j, x)
+    
         # Scalar fast path first
         if isinstance(index, tuple) and len(index) == 2:
             i, j = index
@@ -431,14 +430,7 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         """See the docstring for `spmatrix.toarray`."""
         d = self._process_toarray_args(order, out)
 
-        if d.dtype != np.bool:
-            self._matrix.todense(d)
-        else:
-            for row_idx in range(self.shape[0]):
-                row_indices, row_data = self._matrix.get_row(row_idx)
-
-                for i in range(len(row_indices)):
-                    d[row_idx, row_indices[i]] = row_data[i]
+        self._matrix.todense(d)
 
         return d
 
@@ -456,9 +448,6 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         """
 
         indices, indptr, data = self._matrix.tocsr()
-
-        if self.dtype == np.bool:
-            data = data.astype(np.bool)
 
         from .csr import csr_matrix
         return csr_matrix((data, indices, indptr), shape=self.shape)

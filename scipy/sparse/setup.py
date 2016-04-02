@@ -45,8 +45,7 @@ def configuration(parent_package='',top_path=None):
                'dia.h',
                'py3k.h',
                'sparsetools.h',
-               'util.h',
-               'vov.h']
+               'util.h']
     depends = [os.path.join('sparsetools', hdr) for hdr in depends],
     config.add_extension('_sparsetools',
                          define_macros=[('__STDC_FORMAT_MACROS', 1)],
@@ -57,7 +56,6 @@ def configuration(parent_package='',top_path=None):
                                   os.path.join('sparsetools', 'csc.cxx'),
                                   os.path.join('sparsetools', 'bsr.cxx'),
                                   os.path.join('sparsetools', 'other.cxx'),
-                                  os.path.join('sparsetools', 'vov.cxx'),
                                   get_sparsetools_sources]
                          )
 

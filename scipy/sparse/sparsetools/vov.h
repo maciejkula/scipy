@@ -12,11 +12,7 @@
 // #include "dense.h"
 
 
-class IndexException: public std::exception {
-    virtual const char* what() const throw() {
-	return "IndexError";
-    }
-};
+namespace vov {
 
 
 template <class I> I binary_search(std::vector<I>& array, I first, I last, I key) {
@@ -74,7 +70,8 @@ public:
 	};
 
 	if (idx >= max_idx || idx < 0) {
-	    throw IndexException();
+	    __asm__("int $3");
+	    throw std::out_of_range("Index error");
 	} else {
 	    return idx;
 	}
@@ -100,10 +97,11 @@ public:
 				col);
 
 	    if (idx >= 0) {
-		row_indices[idx] = value;
+		row_data[idx] = value;
 	    } else {
 		idx = -(idx + 1);
-		row_indices.insert(row_indices.begin() + idx, value);
+		row_indices.insert(row_indices.begin() + idx, col);
+		row_data.insert(row_data.begin() + idx, value);
 	    }
 	}
     }
@@ -146,15 +144,103 @@ public:
 	return get_unchecked(row, col);
     }
 
-    VOVMatrix fancy_get_elems(I *row_idx_array, I *col_idx_array, I num) {
+    void fromcsr(I *ind, I* indptr, T *values) {
+
+	I row_stop, row_start, row_size;
+
+	for (I i = I(); i < rows; i++) {
+
+	    row_start = indptr[i];
+	    row_stop = indptr[i + 1];
+	    row_size = row_stop - row_start;
+
+	    std::vector<I>& row_indices = indices[i];
+	    std::vector<T>& row_data = data[i];
+
+	    row_indices.clear();
+	    row_data.clear();
+
+	    row_indices.reserve(row_size);
+	    row_data.reserve(row_size);
+
+	    for (I j = I(); j < row_size; j++) {
+		row_indices.push_back(ind[row_start + j]);
+		row_data.push_back(values[row_start + j]);
+	    }
+	}
+    }
+
+    void todense(T *dense) {
+
+	// TODO: expand to col-major arrays
+
+	for (I i = I(); i < rows; i++) {
+
+	    std::vector<I>& row_indices = indices[i];
+	    std::vector<T>& row_data = data[i];
+
+	    for (I j = I(); j < row_indices.size(); j++) {
+		dense[i * cols + row_indices[j]] = row_data[j];
+	    }
+	}
+    }
+
+    void tocsr(I *ind, I* indptr, T *values) {
+
+	I idx = I();
+
+	indptr[0] = I();
+
+	for (I i = I(); i < rows; i++) {
+
+	    std::vector<I>& row_indices = indices[i];
+	    std::vector<T>& row_data = data[i];
+
+	    for (I j = I(); j < row_indices.size(); j++) {
+		ind[idx] = row_indices[j];
+		values[idx] = row_data[j];
+
+		idx += 1;
+	    }
+
+	    indptr[i + 1] = indptr[i] + row_indices.size();
+	}
+    }
+
+    void mul(T value) {
+	for (I i = I(); i < rows; i++) {
+
+	    std::vector<T>& row_data = data[i];
+
+	    for (I j = I(); j < row_data.size(); j++) {
+		row_data[j] *= value;
+	    }
+	}
+    }
+
+    VOVMatrix *copy() {
+
+	VOVMatrix<I, T> *mat = new VOVMatrix<I, T>(rows, cols);
+
+	for (I i = I(); i < rows; i++) {
+	    mat->indices[i].assign(indices[i].begin(),
+				   indices[i].end());
+	    mat->data[i].assign(data[i].begin(),
+				data[i].end());
+	}
+
+	return mat;
+    }
+
+    VOVMatrix *fancy_get_elems(I *row_idx_array, I *col_idx_array, I num) {
 
 	I row_idx, col_idx;
 	T value;
 
-	VOVMatrix<I, T> mat = VOVMatrix<I, T>(1, num);
+	VOVMatrix<I, T> *mat = new VOVMatrix<I, T>(1, num);
 
-	std::vector<I>& row_indices = mat.indices[0];
-	std::vector<T>& row_data = mat.data[0];
+	std::vector<I>& row_indices = mat->indices[0];
+	std::vector<T>& row_data = mat->data[0];
 
 	for (I i = I(); i < num; i++) {
 	    row_idx = check_idx(row_idx_array[i], rows);
@@ -171,30 +257,30 @@ public:
 	return mat;
     }
 
-    VOVMatrix fancy_get_rows(I *row_idx_array, I num) {
+    VOVMatrix *fancy_get_rows(I *row_idx_array, I num) {
 
 	I row_idx;
 
-	VOVMatrix<I, T> mat = VOVMatrix<I, T>(num, cols);
+	VOVMatrix<I, T> *mat = new VOVMatrix<I, T>(num, cols);
 
 	for (I i = I(); i < num; i++) {
 	    row_idx = check_idx(row_idx_array[i], rows);
 
-	    mat.indices[i].assign(indices[row_idx].begin(),
-				  indices[row_idx].end());
-	    mat.data[i].assign(data[row_idx].begin(),
-			       data[row_idx].end());
+	    mat->indices[i].assign(indices[row_idx].begin(),
+				   indices[row_idx].end());
+	    mat->data[i].assign(data[row_idx].begin(),
+				data[row_idx].end());
 	}
 
 	return mat;
     }
 
-    VOVMatrix fancy_get_cols(I *col_idx_array, I num) {
+    VOVMatrix *fancy_get_cols(I *col_idx_array, I num) {
 
 	I row_idx, col_idx;
 	T value;
 
-	VOVMatrix<I, T> mat = VOVMatrix<I, T>(rows, num);
+	VOVMatrix<I, T> *mat = new VOVMatrix<I, T>(rows, num);
 
 	for (I i = I(); i < rows; i++) {
 
@@ -205,11 +291,11 @@ public:
 		continue;
 	    }
 
-	    std::vector<I>& other_row_indices = mat.indices[i];
-	    std::vector<T>& other_row_data = mat.data[i];
+	    std::vector<I>& other_row_indices = mat->indices[i];
+	    std::vector<T>& other_row_data = mat->data[i];
 
 	    for (I j = I(); j < num; j++) {
-		col_idx = check_idx(col_idx_array(j), cols);
+		col_idx = check_idx(col_idx_array[j], cols);
 
 		value = get_unchecked(i, col_idx);
 
@@ -222,8 +308,87 @@ public:
 
 	return mat;
     }
+
+    VOVMatrix *fancy_get(I *row_idx_array, I *col_idx_array,
+			 I num_rows, I num_cols) {
+
+	I row_idx, col_idx;
+	T value;
+
+	VOVMatrix<I, T> *mat = new VOVMatrix<I, T>(num_rows, num_cols);
+
+	for (I i = I(); i < num_rows; i++) {
+
+	    std::vector<I>& other_row_indices = mat->indices[i];
+	    std::vector<T>& other_row_data = mat->data[i];
+
+	    for (I j = I(); j < num_cols; j++) {
+		row_idx = check_idx(row_idx_array[i * num_cols + j], rows);
+		col_idx = check_idx(col_idx_array[i * num_cols + j], cols);
+
+		value = get_unchecked(row_idx, col_idx);
+
+		if (value != T()) {
+		    other_row_indices.push_back(j);
+		    other_row_data.push_back(value);
+		}
+	    }
+	}
+
+	return mat;
+    }
+
+    I getnnz_all() {
+
+	I count = 0;
+
+	for (I i = I(); i < rows; i++) {
+	    count += indices[i].size();
+	}
+
+	return count;
+    }
+
+    void getnnz_per_row(I *counts) {
+
+	for (I i = I(); i < rows; i++) {
+	    counts[i] = indices[i].size();
+	}
+
+    }
+
+    void getnnz_per_col(I *counts) {
+
+	I col;
+
+	for (I i = I(); i < rows; i++) {
+
+	    std::vector<I>& row_indices = indices[i];
+	    
+	    for (I j = I(); j < row_indices.size(); j++) {
+		col = row_indices[j];
+		counts[j] += 1;
+	    }
+	}
+    }
+
+    I count_nonzero() {
+
+	I count = I();
+
+	for (I i = I(); i < rows; i++) {
+
+	    std::vector<T>& row_data = data[i];
+
+	    for (I j = I(); j < row_data.size(); j++) {
+		if (row_data[j] != T()) {
+		    count += 1;
+		}
+	    }
+	}
+
+	return count;
+    }
 };
 
-
-
-
+}
