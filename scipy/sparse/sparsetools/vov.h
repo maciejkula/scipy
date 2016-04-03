@@ -1,5 +1,7 @@
 #include <vector>
 #include <exception>
+
+#include <numpy/arrayobject.h>
 // #ifndef __CSR_H__
 // #define __CSR_H__
 
@@ -40,6 +42,7 @@ template <class I> I binary_search(std::vector<I>& array, I first, I last, I key
        else
            return mid;     // found it. return position /////
    }
+
    return - (first + 1);    // failed to find key
 }
 
@@ -70,7 +73,6 @@ public:
 	};
 
 	if (idx >= max_idx || idx < 0) {
-	    __asm__("int $3");
 	    throw std::out_of_range("Index error");
 	} else {
 	    return idx;
@@ -100,8 +102,14 @@ public:
 		row_data[idx] = value;
 	    } else {
 		idx = -(idx + 1);
-		row_indices.insert(row_indices.begin() + idx, col);
-		row_data.insert(row_data.begin() + idx, value);
+
+		if (idx >= row_indices.size()) {
+		    row_indices.push_back(col);
+		    row_data.push_back(value);
+		} else {
+		    row_indices.insert(row_indices.begin() + idx, col);
+		    row_data.insert(row_data.begin() + idx, value);
+		}
 	    }
 	}
     }
@@ -144,14 +152,16 @@ public:
 	return get_unchecked(row, col);
     }
 
-    void fromcsr(I *ind, I* indptr, T *values) {
+    void fromcsr(PyArrayObject *ind,
+		 PyArrayObject *indptr,
+		 PyArrayObject *values) {
 
 	I row_stop, row_start, row_size;
 
 	for (I i = I(); i < rows; i++) {
 
-	    row_start = indptr[i];
-	    row_stop = indptr[i + 1];
+	    row_start = *((I*)PyArray_GETPTR1(indptr, i));
+	    row_stop = *((I*)PyArray_GETPTR1(indptr, i + 1));
 	    row_size = row_stop - row_start;
 
 	    std::vector<I>& row_indices = indices[i];
@@ -164,13 +174,13 @@ public:
 	    row_data.reserve(row_size);
 
 	    for (I j = I(); j < row_size; j++) {
-		row_indices.push_back(ind[row_start + j]);
-		row_data.push_back(values[row_start + j]);
+		row_indices.push_back(*((I*)PyArray_GETPTR1(ind, row_start + j)));
+		row_data.push_back(*((T*)PyArray_GETPTR1(values, row_start + j)));
 	    }
 	}
     }
 
-    void todense(T *dense) {
+    void todense(PyArrayObject *dense) {
 
 	// TODO: expand to col-major arrays
 
@@ -180,16 +190,18 @@ public:
 	    std::vector<T>& row_data = data[i];
 
 	    for (I j = I(); j < row_indices.size(); j++) {
-		dense[i * cols + row_indices[j]] = row_data[j];
+		*((T*)PyArray_GETPTR2(dense, i, row_indices[j])) = row_data[j];
 	    }
 	}
     }
 
-    void tocsr(I *ind, I* indptr, T *values) {
+    void tocsr(PyArrayObject *ind,
+	       PyArrayObject *indptr,
+	       PyArrayObject *values) {
 
 	I idx = I();
 
-	indptr[0] = I();
+	*(I*)PyArray_GETPTR1(indptr, 0) = I();
 
 	for (I i = I(); i < rows; i++) {
 
@@ -197,13 +209,14 @@ public:
 	    std::vector<T>& row_data = data[i];
 
 	    for (I j = I(); j < row_indices.size(); j++) {
-		ind[idx] = row_indices[j];
-		values[idx] = row_data[j];
+		*(I*)PyArray_GETPTR1(ind, idx) = row_indices[j];
+		*(T*)PyArray_GETPTR1(values, idx) = row_data[j];
 
 		idx += 1;
 	    }
 
-	    indptr[i + 1] = indptr[i] + row_indices.size();
+	    *(I*)PyArray_GETPTR1(indptr, i + 1) = (*(I*)PyArray_GETPTR1(indptr, i)
+						   + row_indices.size());
 	}
     }
 
@@ -232,7 +245,9 @@ public:
 	return mat;
     }
 
-    VOVMatrix *fancy_get_elems(I *row_idx_array, I *col_idx_array, I num) {
+    VOVMatrix *fancy_get_elems(PyArrayObject *row_idx_array,
+			       PyArrayObject *col_idx_array,
+			       I num) {
 
 	I row_idx, col_idx;
 	T value;
@@ -243,8 +258,8 @@ public:
 	std::vector<T>& row_data = mat->data[0];
 
 	for (I i = I(); i < num; i++) {
-	    row_idx = check_idx(row_idx_array[i], rows);
-	    col_idx = check_idx(col_idx_array[i], cols);
+	    row_idx = check_idx(*(I*)PyArray_GETPTR1(row_idx_array, i), rows);
+	    col_idx = check_idx(*(I*)PyArray_GETPTR1(col_idx_array, i), cols);
 
 	    value = get_unchecked(row_idx, col_idx);
 
@@ -257,14 +272,14 @@ public:
 	return mat;
     }
 
-    VOVMatrix *fancy_get_rows(I *row_idx_array, I num) {
+    VOVMatrix *fancy_get_rows(PyArrayObject *row_idx_array, I num) {
 
 	I row_idx;
 
 	VOVMatrix<I, T> *mat = new VOVMatrix<I, T>(num, cols);
 
 	for (I i = I(); i < num; i++) {
-	    row_idx = check_idx(row_idx_array[i], rows);
+	    row_idx = check_idx(*(I*)PyArray_GETPTR1(row_idx_array, i), rows);
 
 	    mat->indices[i].assign(indices[row_idx].begin(),
 				   indices[row_idx].end());
@@ -275,7 +290,7 @@ public:
 	return mat;
     }
 
-    VOVMatrix *fancy_get_cols(I *col_idx_array, I num) {
+    VOVMatrix *fancy_get_cols(PyArrayObject *col_idx_array, I num) {
 
 	I row_idx, col_idx;
 	T value;
@@ -295,7 +310,7 @@ public:
 	    std::vector<T>& other_row_data = mat->data[i];
 
 	    for (I j = I(); j < num; j++) {
-		col_idx = check_idx(col_idx_array[j], cols);
+		col_idx = check_idx(*(I*)PyArray_GETPTR1(col_idx_array, j), cols);
 
 		value = get_unchecked(i, col_idx);
 
@@ -309,7 +324,8 @@ public:
 	return mat;
     }
 
-    VOVMatrix *fancy_get(I *row_idx_array, I *col_idx_array,
+    VOVMatrix *fancy_get(PyArrayObject *row_idx_array,
+			 PyArrayObject *col_idx_array,
 			 I num_rows, I num_cols) {
 
 	I row_idx, col_idx;
@@ -323,8 +339,8 @@ public:
 	    std::vector<T>& other_row_data = mat->data[i];
 
 	    for (I j = I(); j < num_cols; j++) {
-		row_idx = check_idx(row_idx_array[i * num_cols + j], rows);
-		col_idx = check_idx(col_idx_array[i * num_cols + j], cols);
+		row_idx = check_idx(*(I*)PyArray_GETPTR2(row_idx_array, i, j), rows);
+		col_idx = check_idx(*(I*)PyArray_GETPTR2(col_idx_array, i, j), cols);
 
 		value = get_unchecked(row_idx, col_idx);
 
@@ -336,6 +352,15 @@ public:
 	}
 
 	return mat;
+    }
+
+    void fancy_set(I *row_idx_array, I *col_idx_array, T *value_array, I num) {
+	// __asm__("int $3");
+	for (I i = I(); i < num; i++) {
+	    set(row_idx_array[i],
+		col_idx_array[i],
+		value_array[i]);
+	}
     }
 
     I getnnz_all() {
@@ -367,7 +392,7 @@ public:
 	    
 	    for (I j = I(); j < row_indices.size(); j++) {
 		col = row_indices[j];
-		counts[j] += 1;
+		counts[col] += 1;
 	    }
 	}
     }
@@ -388,6 +413,33 @@ public:
 	}
 
 	return count;
+    }
+
+    VOVMatrix *reshape(I new_rows, I new_cols) {
+
+	I new_row_idx, new_col_idx, col_idx;
+	T value;
+
+	VOVMatrix<I, T> *mat = new VOVMatrix<I, T>(new_rows, new_cols);
+
+	for (I i = I(); i < rows; i++) {
+
+	    std::vector<I>& row_indices = indices[i];
+	    std::vector<T>& row_data = data[i];
+
+	    for (I j = I(); j < row_indices.size(); j++) {
+		col_idx = row_indices[j];
+		value = row_data[j];
+
+		new_row_idx = (i * cols + col_idx) / new_cols;
+		new_col_idx = (i * cols + col_idx) % new_cols;
+
+		mat->indices[new_row_idx].push_back(new_col_idx);
+		mat->data[new_row_idx].push_back(value);
+	    }
+	}
+
+	return mat;
     }
 };
 

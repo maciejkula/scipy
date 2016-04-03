@@ -3758,6 +3758,7 @@ class TestFastLIL(sparse_test_class(minmax=False)):
         # Ticket 1604.
         A = fast_lil_matrix((1, 3), dtype=np.dtype('float64'))
         B = array([0.1, 0.1, 0.1])
+        print('this is a heisenbug', A.todense())
         A[0, :] += B
         assert_array_equal(A[0, :].toarray().squeeze(), B)
 

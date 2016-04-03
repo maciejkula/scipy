@@ -343,9 +343,6 @@ class fast_lil_matrix(spmatrix, IndexMixin):
 
     def __setitem__(self, index, x):
 
-        i, j = index
-        return self._matrix.safe_set(i, j, x)
-    
         # Scalar fast path first
         if isinstance(index, tuple) and len(index) == 2:
             i, j = index
@@ -499,6 +496,10 @@ def _prepare_index_for_memoryview(i, j, idx_dtype, x=None):
 
     if not i.flags.writeable or i.dtype is not idx_dtype:
         i = i.astype(idx_dtype)
+    if not i.flags.c_contiguous:
+        i = np.ascontiguousarray(i)
+    if not j.flags.c_contiguous:
+        j = np.ascontiguousarray(j)
     if not j.flags.writeable or j.dtype is not idx_dtype:
         j = j.astype(idx_dtype)
 
@@ -509,6 +510,9 @@ def _prepare_index_for_memoryview(i, j, idx_dtype, x=None):
 
         if not x.flags.writeable:
             x = x.copy()
+
+        if not x.flags.c_contiguous:
+            x = np.ascontiguousarray(x)
 
         return i, j, x
     else:

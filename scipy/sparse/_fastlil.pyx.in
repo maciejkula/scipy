@@ -62,23 +62,31 @@ cdef extern from "./sparsetools/vov.h" namespace "vov":
     cdef cppclass VOVMatrix[I, T]:
         VOVMatrix(I, I) except +
         void set(I, I, T) except +
-
         void set_unchecked(I, I, T)
         T get(I, I) except +
         T get_unchecked(I, I)
-        void fromcsr(I*, I*, T*)
-        void todense(T*)
-        void tocsr(I*, I*, T*)
+        void fromcsr(cnp.PyArrayObject*,
+                     cnp.PyArrayObject*,
+                     cnp.PyArrayObject*)
+        void todense(cnp.PyArrayObject*)
+        void tocsr(cnp.PyArrayObject*,
+                     cnp.PyArrayObject*,
+                     cnp.PyArrayObject*)
         void mul(T)
         VOVMatrix[I, T] *copy()
         I getnnz_all()
         void getnnz_per_row(I*)
         void getnnz_per_col(I*)
         I count_nonzero()
-        VOVMatrix[I, T] *fancy_get_elems(I*, I*, I) except +
-        VOVMatrix[I, T] *fancy_get_rows(I*, I) except +
-        VOVMatrix[I, T] *fancy_get_cols(I*, I) except +
-        VOVMatrix[I, T] *fancy_get(I*, I*, I, I) except +
+        VOVMatrix[I, T] *fancy_get_elems(cnp.PyArrayObject*,
+                                         cnp.PyArrayObject*, I) except +
+        VOVMatrix[I, T] *fancy_get_rows(cnp.PyArrayObject*, I) except +
+        VOVMatrix[I, T] *fancy_get_cols(cnp.PyArrayObject*, I) except +
+        VOVMatrix[I, T] *fancy_get(cnp.PyArrayObject*,
+                                   cnp.PyArrayObject*,
+                                   I, I) except +
+        void fancy_set(I*, I*, T*, I) except +
+        VOVMatrix[I, T] *reshape(I, I) except +
 
 
 {{for PYIDX, PYVALUE, IDX_T, VALUE_T in get_dispatch2(IDX_TYPES, VALUE_TYPES)}}
@@ -138,8 +146,8 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         return self.vov.get_unchecked(row, col)
 
     cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get_elems(self,
-                                                                cnp.ndarray[{{IDX_T}}, ndim=1] row_indices,
-                                                                cnp.ndarray[{{IDX_T}}, ndim=1] col_indices):
+                                                                row_indices,
+                                                                col_indices):
         """
         Fancy indexing: get elements at coordinates given by
         row and column indices.
@@ -153,13 +161,13 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
         mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(rows, cols)
         del mat.vov
-        mat.vov = self.vov.fancy_get_elems(&row_indices[0],
-                                           &col_indices[0],
+        mat.vov = self.vov.fancy_get_elems(<cnp.PyArrayObject*>row_indices,
+                                           <cnp.PyArrayObject*>col_indices,
                                            row_indices.shape[0])
         return mat
 
     cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get_rows(self,
-                                                               {{IDX_T}}[:] row_indices):
+                                                               row_indices):
         """
         Fancy indexing: get rows indicated by row_indices.
         """
@@ -170,13 +178,13 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
         mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(rows, self.cols)
         del mat.vov
-        mat.vov = self.vov.fancy_get_rows(&row_indices[0],
+        mat.vov = self.vov.fancy_get_rows(<cnp.PyArrayObject*>row_indices,
                                           row_indices.shape[0])
 
         return mat
 
     cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get_cols(self,
-                                                               {{IDX_T}}[:] col_indices):
+                                                               col_indices):
         """
         Fancy indexing: get cols indicated by col_indices.
         """
@@ -187,7 +195,7 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
         mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(self.rows, cols)
         del mat.vov
-        mat.vov = self.vov.fancy_get_cols(&col_indices[0],
+        mat.vov = self.vov.fancy_get_cols(<cnp.PyArrayObject*>col_indices,
                                           col_indices.shape[0])
 
         return mat
@@ -195,8 +203,8 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
     cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get(self,
                                                           {{IDX_T}} rows,
                                                           {{IDX_T}} cols,
-                                                          {{IDX_T}}[:, :] i_idx,
-                                                          {{IDX_T}}[:, :] j_idx):
+                                                          i_idx,
+                                                          j_idx):
         """
         Fancy indexing: the rest.
         """
@@ -205,8 +213,8 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
         mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(rows, cols)
         del mat.vov
-        mat.vov = self.vov.fancy_get(&i_idx[0, 0],
-                                     &j_idx[0, 0],
+        mat.vov = self.vov.fancy_get(<cnp.PyArrayObject*> i_idx,
+                                     <cnp.PyArrayObject*> j_idx,
                                      rows, cols)
 
         return mat
@@ -214,40 +222,18 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
     cpdef fancy_set(self,
                     {{IDX_T}}[:, :] i_idx,
                     {{IDX_T}}[:, :] j_idx,
-                    {{if PYVALUE == 'bool'}}
-                    cnp.npy_uint8[:, :] data
-                    {{else}}
-                    {{VALUE_T}}[:, :] data
-                    {{endif}}
-    ):
+                    data):
 
-        cdef {{IDX_T}} row_idx, col_idx, i, j
-        cdef {{VALUE_T}} value
-        cdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} mat
-        cdef vector[{{IDX_T}}] *row_indices_vec
-        cdef vector[{{VALUE_T}}] *row_data_vec
+        cdef unsigned long data_ptr = data.ctypes.data
 
-        for i in range(i_idx.shape[0]):
-
-            row_indices_vec = &(self.indices[i])
-            row_data_vec = &(self.data[i])
-
-            for j in range(i_idx.shape[1]):
-                row_idx = check_idx_{{PYIDX}}(i_idx[i, j], self.rows)
-                col_idx = check_idx_{{PYIDX}}(j_idx[i, j], self.cols)
-
-                if row_idx == -1 or col_idx == -1:
-                    raise IndexError
-
-                value = data[i, j]
-
-                self.set(row_idx, col_idx, value)
+        self.vov.fancy_set(&i_idx[0, 0],
+                           &j_idx[0, 0],
+                           <{{VALUE_T}}*>(<void*> data_ptr),
+                           i_idx.size)
 
     cpdef todense(self, dense):
 
-        cdef unsigned long data_ptr = dense.ctypes.data
-
-        self.vov.todense(<{{VALUE_T}}*>(<void*> data_ptr))
+        self.vov.todense(<cnp.PyArrayObject*> dense)
 
     cpdef mul(self, {{VALUE_T}} value):
 
@@ -282,49 +268,24 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
                                                         {{IDX_T}} rows,
                                                         {{IDX_T}} cols):
 
-        cdef {{IDX_T}} row_idx, col_idx, i, new_row_idx, new_col_idx
-        cdef {{VALUE_T}} value
         cdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} mat
 
-        cdef vector[{{IDX_T}}] *self_indices_vec
-        cdef vector[{{VALUE_T}}] *self_data_vec
-
         mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(rows, cols)
-
-        new_row_idx = 0
-
-        for row_idx in range(self.rows):
-
-            self_indices_vec = &(self.indices[row_idx])
-            self_data_vec = &(self.data[row_idx])
-
-            for i in range(self_indices_vec.size()):
-                col_idx = deref(self_indices_vec)[i]
-                value = deref(self_data_vec)[i]
-
-                new_row_idx = (row_idx * self.cols + col_idx) / cols
-                new_col_idx = (row_idx * self.cols + col_idx) % cols
-
-                new_indices_vec = mat.indices[new_row_idx].push_back(new_col_idx)
-                new_data_vec = mat.data[new_row_idx].push_back(value)
+        del mat.vov
+        mat.vov = self.vov.reshape(rows, cols)
 
         return mat
 
     cpdef fromcsr(self,
-                  cnp.ndarray[{{IDX_T}}, ndim=1] indices,
-                  cnp.ndarray[{{IDX_T}}, ndim=1] indptr,
+                  indices,
+                  indptr,
                   data):
 
-        cdef unsigned long data_ptr = data.ctypes.data
-
-        self.vov.fromcsr(&indices[0],
-                         &indptr[0],
-                         <{{VALUE_T}}*>(<void*> data_ptr))
+        self.vov.fromcsr(<cnp.PyArrayObject*>indices,
+                         <cnp.PyArrayObject*>indptr,
+                         <cnp.PyArrayObject*>data)
 
     cpdef tocsr(self):
-
-        cdef cnp.ndarray[{{IDX_T}}, ndim=1] indices
-        cdef cnp.ndarray[{{IDX_T}}, ndim=1] indptr
 
         cdef {{IDX_T}} nnz = self.vov.getnnz_all()
 
@@ -332,11 +293,9 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         indices = np.empty(nnz, dtype=np.{{PYIDX}})
         indptr = np.empty(self.rows + 1, dtype=np.{{PYIDX}})
 
-        cdef unsigned long data_ptr = data.ctypes.data
-
-        self.vov.tocsr(&indices[0],
-                       &indptr[0],
-                       <{{VALUE_T}}*>(<void*> data_ptr))
+        self.vov.tocsr(<cnp.PyArrayObject*>indices,
+                       <cnp.PyArrayObject*>indptr,
+                       <cnp.PyArrayObject*>data)
 
         return indices, indptr, data
 
@@ -349,42 +308,4 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         mat.vov = self.vov.copy()
 
         return mat
-{{endfor}}
-
-
-{{for PYIDX, IDX_T in get_dispatch(IDX_TYPES)}}
-cdef {{IDX_T}} binary_search_{{PYIDX}}({{IDX_T}}* vec, {{IDX_T}} size, {{IDX_T}} first, {{IDX_T}} last, {{IDX_T}} x) nogil:
-    """
-    Binary seach in an array of {{IDX_T}}s
-    """
-
-    cdef {{IDX_T}} mid, val
-
-    mid = (first + last) >> 1
-
-    while first < last:
-
-        val = vec[mid]
-
-        if val == x:
-            return mid
-        elif val < x:
-            first = mid + 1
-        else:
-            last = mid
-
-        mid = (first + last) >> 1
-
-    return mid
-
-
-cdef {{IDX_T}} check_idx_{{PYIDX}}({{IDX_T}} idx, {{IDX_T}} max_idx):
-
-    if idx < 0:
-        idx = max_idx + idx
-
-    if idx >= max_idx or idx < 0:
-        return -1
-    else:
-        return idx
 {{endfor}}
