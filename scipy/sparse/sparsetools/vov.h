@@ -1,6 +1,7 @@
 #include <vector>
 #include <exception>
 
+#include <Python.h>
 #include <numpy/arrayobject.h>
 // #ifndef __CSR_H__
 // #define __CSR_H__
@@ -15,6 +16,11 @@
 
 
 namespace vov {
+
+
+int breakpoint() {
+  __asm__("int $3");
+}
 
 
 template <class I> I binary_search(std::vector<I>& array, I first, I last, I key) {
@@ -44,6 +50,50 @@ template <class I> I binary_search(std::vector<I>& array, I first, I last, I key
    }
 
    return - (first + 1);    // failed to find key
+}
+
+// Adapted from https://github.com/ev-br/sparr/blob/master/sparr/util.h
+template <class I> int check_index(PyObject *obj, I *idx) {
+
+    if (!PyArray_IsIntegerScalar(obj)) {
+	return false;
+    } else {
+	*idx = PyInt_AsLong(obj);
+    }
+    
+    return true;
+}
+
+
+int check_two_tuple(PyObject *obj, PyObject **i, PyObject **j) {
+
+    if (!PyTuple_Check(obj)) {
+        return false;
+    }
+
+    if (PyTuple_GET_SIZE(obj) != 2) {
+        return false;
+    }
+
+    *i = PyTuple_GET_ITEM(obj, 0);
+    *j = PyTuple_GET_ITEM(obj, 1);
+
+    return true;
+}
+
+
+int check_slice_index(PyObject *obj,
+		      Py_ssize_t length,
+		      Py_ssize_t *start,
+		      Py_ssize_t *stop,
+		      Py_ssize_t *step) {
+
+    if (PySlice_Check(obj)) {
+	PySlice_GetIndices((PySliceObject*)obj, length, start, stop, step);
+	return true;
+    }
+
+    return false;
 }
 
 

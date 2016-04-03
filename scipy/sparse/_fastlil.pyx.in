@@ -53,12 +53,22 @@ def get_dispatch2(types, types2):
 
 cimport cython
 cimport numpy as cnp
+cnp.import_array()
 import numpy as np
 
+from cpython cimport *
 from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector
 
 cdef extern from "./sparsetools/vov.h" namespace "vov":
+    cdef int check_index[I](PyObject*,
+                            I*)
+    cdef int check_slice_index(PyObject*, Py_ssize_t,
+                               Py_ssize_t*,
+                               Py_ssize_t*,
+                               Py_ssize_t*)
+    cdef int check_two_tuple(object, PyObject**, PyObject**)
+    cdef int breakpoint()
     cdef cppclass VOVMatrix[I, T]:
         VOVMatrix(I, I) except +
         void set(I, I, T) except +
@@ -97,9 +107,6 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
     cdef {{IDX_T}} rows
     cdef {{IDX_T}} cols
-
-    cdef vector[vector[{{IDX_T}}]] indices
-    cdef vector[vector[{{VALUE_T}}]] data
 
     cdef VOVMatrix[{{IDX_T}}, {{VALUE_T}}] *vov
 
@@ -144,6 +151,36 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
         """
 
         return self.vov.get_unchecked(row, col)
+
+    def __getitem__(self, index):
+
+        cdef {{IDX_T}} row_idx, col_idx
+        cdef PyObject *i, *j
+        cdef int i_slice, j_slice
+        cdef Py_ssize_t j_start, j_stop, j_step
+        cdef Py_ssize_t i_start, i_stop, i_step
+
+        if check_two_tuple(index, &i, &j):
+
+            if check_index(i, &row_idx) and check_index(j, &col_idx):
+                return self.vov.get(row_idx, col_idx)
+            
+            i_slice = check_slice_index(i,
+                                        self.rows,
+                                        &i_start,
+                                        &i_stop,
+                                        &i_step)
+            j_slice = check_slice_index(j,
+                                        self.cols,
+                                        &j_start,
+                                        &j_stop,
+                                        &j_step)
+
+            if (i_slice and j_slice
+                and i_start == 0 and i_stop == self.rows and i_step == 1
+                and j_start ==0 and j_stop == self.cols and j_step == 1):
+                return self.copy()
+
 
     cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get_elems(self,
                                                                 row_indices,
