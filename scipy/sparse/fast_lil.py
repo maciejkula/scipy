@@ -248,6 +248,21 @@ class fast_lil_matrix(spmatrix, IndexMixin):
         Python lists return copies.
         """
 
+        val = self._matrix[index]
+
+        if val is not None:
+            if isinstance(val, getattr(_fastlil,
+                                       'fast_lil_matrix_{}_{}'.format(
+                                           str(self._idx_dtype),
+                                           str(self.dtype)))):
+                new = fast_lil_matrix(val.shape(), dtype=self.dtype)
+                new._matrix = val
+                return new
+            else:
+                return val
+
+        print('MISSSSSSSSSSSSSSSSSSSSSSSING', type(index), index)
+
         # Scalar fast path first
         if isinstance(index, tuple) and len(index) == 2:
             i, j = index

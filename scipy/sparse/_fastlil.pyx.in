@@ -69,6 +69,10 @@ cdef extern from "./sparsetools/vov.h" namespace "vov":
                                Py_ssize_t*)
     cdef int check_two_tuple(object, PyObject**, PyObject**)
     cdef int breakpoint()
+    cdef cppclass SliceIndex[I]:
+        SliceIndex(I, I, I)
+    cdef cppclass ArrayIndex[I]:
+        ArrayIndex(cnp.PyArrayObject*, I)
     cdef cppclass VOVMatrix[I, T]:
         VOVMatrix(I, I) except +
         void set(I, I, T) except +
@@ -95,6 +99,10 @@ cdef extern from "./sparsetools/vov.h" namespace "vov":
         VOVMatrix[I, T] *fancy_get(cnp.PyArrayObject*,
                                    cnp.PyArrayObject*,
                                    I, I) except +
+        VOVMatrix[I, T] *slice(SliceIndex[I], SliceIndex[I]) except +
+        VOVMatrix[I, T] *slice(ArrayIndex[I], ArrayIndex[I]) except +
+        VOVMatrix[I, T] *slice(SliceIndex[I], ArrayIndex[I]) except +
+        VOVMatrix[I, T] *slice(ArrayIndex[I], SliceIndex[I]) except +
         void fancy_set(I*, I*, T*, I) except +
         VOVMatrix[I, T] *reshape(I, I) except +
 
@@ -124,6 +132,10 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
         return np.dtype('{{PYIDX}}')
 
+    def shape(self):
+
+        return (self.rows, self.cols)
+
     cdef void set(self, {{IDX_T}} row, {{IDX_T}} col, {{VALUE_T}} value):
         """
         Set (row, col) to value, without bounds checking.
@@ -152,34 +164,101 @@ cdef class fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}:
 
         return self.vov.get_unchecked(row, col)
 
+    cdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} getitem_tuple(self, PyObject* i, PyObject* j):
+
+        cdef {{IDX_T}} rows, cols
+        cdef int i_slice, j_slice, i_array, j_array
+        cdef Py_ssize_t j_start, j_stop, j_step
+        cdef Py_ssize_t i_start, i_stop, i_step
+
+        i_slice = 0
+        j_slice = 0
+                    
+        i_slice = check_slice_index(i,
+                                    <Py_ssize_t>self.rows,
+                                    &i_start,
+                                    &i_stop,
+                                    &i_step)
+        j_slice = check_slice_index(j,
+                                    <Py_ssize_t>self.cols,
+                                    &j_start,
+                                    &j_stop,
+                                    &j_step)
+
+        if i_slice and j_slice:
+            rows = (i_stop - i_start) / i_step
+            cols = (j_stop - j_start) / j_step
+
+            mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(rows, cols)
+            del mat.vov
+            mat.vov = self.vov.slice(SliceIndex[{{IDX_T}}](<{{IDX_T}}>i_start,
+                                                           <{{IDX_T}}>i_stop,
+                                                           <{{IDX_T}}>i_step),
+                                     SliceIndex[{{IDX_T}}](<{{IDX_T}}>j_start,
+                                                           <{{IDX_T}}>j_stop,
+                                                           <{{IDX_T}}>j_step))
+            return mat
+
+        i_array = cnp.PyArray_Check(<object>i)
+        j_array = cnp.PyArray_Check(<object>j)
+
+        if (i_array and j_array
+            and cnp.PyArray_NDIM(<object>i) == 1
+            and cnp.PyArray_NDIM(<object>j) == 1):
+
+            rows = 1
+            cols = cnp.PyArray_DIMS(<object>j)[0];
+
+            mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(rows, cols)
+            del mat.vov
+            mat.vov = self.vov.fancy_get_elems(<cnp.PyArrayObject*>i,
+                                               <cnp.PyArrayObject*>j,
+                                               cols)
+            return mat
+
+        if (i_array and j_slice
+            and cnp.PyArray_NDIM(<object>i) == 1):
+            
+            rows = cnp.PyArray_DIMS(<object>i)[0]
+            cols = (j_stop - j_start) / j_step
+
+            mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(rows, cols)
+            del mat.vov
+            mat.vov = self.vov.slice(ArrayIndex[{{IDX_T}}](<cnp.PyArrayObject*>i,
+                                                           rows),
+                                     SliceIndex[{{IDX_T}}](<{{IDX_T}}>j_start,
+                                                           <{{IDX_T}}>j_stop,
+                                                           <{{IDX_T}}>j_step))
+            return mat
+
+        if (i_slice and j_array
+            and cnp.PyArray_NDIM(<object>j) == 1):
+
+            rows = (i_stop - i_start) / i_step
+            cols = cnp.PyArray_DIMS(<object>j)[0]
+
+            mat = fast_lil_matrix_{{PYIDX}}_{{PYVALUE}}(rows, cols)
+            del mat.vov
+            mat.vov = self.vov.slice(SliceIndex[{{IDX_T}}](<{{IDX_T}}>i_start,
+                                                           <{{IDX_T}}>i_stop,
+                                                           <{{IDX_T}}>i_step),
+                                     ArrayIndex[{{IDX_T}}](<cnp.PyArrayObject*>j,
+                                                           cols))
+            return mat
+
     def __getitem__(self, index):
 
         cdef {{IDX_T}} row_idx, col_idx
         cdef PyObject *i, *j
-        cdef int i_slice, j_slice
-        cdef Py_ssize_t j_start, j_stop, j_step
-        cdef Py_ssize_t i_start, i_stop, i_step
 
         if check_two_tuple(index, &i, &j):
 
             if check_index(i, &row_idx) and check_index(j, &col_idx):
                 return self.vov.get(row_idx, col_idx)
-            
-            i_slice = check_slice_index(i,
-                                        self.rows,
-                                        &i_start,
-                                        &i_stop,
-                                        &i_step)
-            j_slice = check_slice_index(j,
-                                        self.cols,
-                                        &j_start,
-                                        &j_stop,
-                                        &j_step)
+            else:
+                return self.getitem_tuple(i, j)
 
-            if (i_slice and j_slice
-                and i_start == 0 and i_stop == self.rows and i_step == 1
-                and j_start ==0 and j_stop == self.cols and j_step == 1):
-                return self.copy()
+
 
 
     cpdef fast_lil_matrix_{{PYIDX}}_{{PYVALUE}} fancy_get_elems(self,

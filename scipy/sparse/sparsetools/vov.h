@@ -23,6 +23,86 @@ int breakpoint() {
 }
 
 
+template <class I> class SliceIndex {
+    I start;
+    I stop;
+    I step;
+    
+    I state;
+
+public:
+
+    SliceIndex(I start_, I stop_, I step_) {
+	start = start_;
+	stop = stop_;
+	step = step_;
+
+	state = I();
+    }
+
+    I length() {
+	return (stop - start) / step;
+    }
+
+    bool has_next() {
+	return (start + state * step) < stop;
+    }
+
+    I next() {
+	I val = start + state * step;
+	state++;
+	return val;
+    }
+
+    I index() {
+	return state;
+    }
+
+    void reset() {
+	state = I();
+    }
+};
+
+
+template <class I> class ArrayIndex {
+    PyArrayObject* idx_array;
+    I len;
+    
+    I state;
+
+public:
+
+    ArrayIndex(PyArrayObject* idx_array_, I len_) {
+	idx_array = idx_array_;
+	len = len_;
+
+	state = I();
+    }
+
+    I length() {
+	return len;
+    }
+
+    bool has_next() {
+	return state < len;
+    }
+
+    I next() {
+	I val = *(I*)PyArray_GETPTR1(idx_array, state);
+	state++;
+	return val;
+    }
+
+    I index() {
+	return state;
+    }
+
+    void reset() {
+	state = I();
+    }
+};
+
+
 template <class I> I binary_search(std::vector<I>& array, I first, I last, I key) {
    // function:
    //   Searches sortedArray[first]..sortedArray[last] for key.  
@@ -88,8 +168,10 @@ int check_slice_index(PyObject *obj,
 		      Py_ssize_t *stop,
 		      Py_ssize_t *step) {
 
+    Py_ssize_t len;
+
     if (PySlice_Check(obj)) {
-	PySlice_GetIndices((PySliceObject*)obj, length, start, stop, step);
+	PySlice_GetIndicesEx((PySliceObject*)obj, length, start, stop, step, &len);
 	return true;
     }
 
@@ -403,6 +485,95 @@ public:
 
 	return mat;
     }
+
+    template <class RI, class CI> VOVMatrix *slice(RI row_indices, CI col_indices) {
+	I num_rows, num_cols, row_idx, col_idx, new_row_idx, new_col_idx;
+	T value;
+
+	num_rows = row_indices.length();
+	num_cols = col_indices.length();
+
+	if (num_rows == rows && num_cols == cols) {
+	    return copy();
+	}
+
+	VOVMatrix<I, T> *mat = new VOVMatrix<I, T>(num_rows, num_cols);
+
+	while (row_indices.has_next()) {
+	    new_row_idx = row_indices.index();
+	    row_idx = check_idx(row_indices.next(), rows);
+
+	    std::vector<I>& row_ind = indices[row_idx];
+	    std::vector<T>& row_data = data[row_idx];
+
+	    if (num_cols == cols) {
+		mat->indices[new_row_idx].assign(row_ind.begin(),
+						 row_ind.end());
+		mat->data[new_row_idx].assign(row_data.begin(),
+					      row_data.end());
+	    } else {
+		while (col_indices.has_next()) {
+		    new_col_idx = col_indices.index();
+		    col_idx = check_idx(col_indices.next(), cols);
+		    value = get_unchecked(row_idx, col_idx);
+
+		    if (value != T()) {
+			mat->indices[new_row_idx].push_back(new_col_idx);
+			mat->data[new_row_idx].push_back(value);
+		    }
+		}
+		col_indices.reset();
+	    }
+	}
+
+	return mat;
+    }
+
+    /* VOVMatrix *slice(Py_ssize_t row_start, Py_ssize_t row_step, Py_ssize_t row_stop, */
+    /* 		     Py_ssize_t col_start, Py_ssize_t col_step, Py_ssize_t col_stop) { */
+
+    /* 	I num_cols, num_rows, col_idx, new_col_idx; */
+    /* 	bool all_columns; */
+
+    /* 	num_rows = (row_stop - row_start) / row_step; */
+    /* 	num_cols = (col_stop - col_start)/ col_step; */
+    /* 	all_columns = (col_start == 0 */
+    /* 		       && col_stop = cols */
+    /* 		       && col_step == 1); */
+
+    /* 	VOVMatrix<I, T> *mat = new VOVMatrix<I, T>(num_rows, num_cols); */
+
+    /* 	for (Py_ssize_t i = row_start; i < row_stop; i += row_step) { */
+
+    /* 	    std::vector<I>& row_indices = indices[i]; */
+    /* 	    std::vector<T>& row_data = data[i]; */
+	    
+    /* 	    if (all_columns) { */
+    /* 		mat->indices[i].assign(row_indices.begin(), */
+    /* 				       row_indices.end()); */
+    /* 		mat->data[i].assign(row_data.begin(), */
+    /* 				    row_data.end()); */
+    /* 	    } else { */
+    /* 		for (I j = I(); I < cols; I++) { */
+
+    /* 		    col_idx = row_indices[j]; */
+
+    /* 		    if (col_idx >= col_stop) { */
+    /* 			break; */
+    /* 		    } else if (col_idx < col_start) { */
+    /* 			continue; */
+    /* 		    } else if ((col_idx - col_start) % col_step == 0) { */
+    /* 			new_col_idx = (col_idx - col_start) / col_step; */
+    /* 			mat->indices[i].push_back(new_col_idx); */
+    /* 			mat->data[i].push_back(row_data[j]); */
+    /* 		    } */
+    /* 		} */
+    /* 	    } */
+    /* 	} */
+
+    /* 	return mat; */
+    /* }
+ */
 
     void fancy_set(I *row_idx_array, I *col_idx_array, T *value_array, I num) {
 	// __asm__("int $3");
